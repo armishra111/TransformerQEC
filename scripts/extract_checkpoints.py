@@ -61,7 +61,7 @@ inject_source = (
     f'{ckpt_dict}\n'
     '}\n'
     '\n'
-    '_results = Path(r"C:\\Books\\Quant_Prep\\jupyter_notebooks\\QEC_ML\\results")\n'
+    '_results = Path("../results").resolve()\n'
     'if not _results.exists():\n'
     '    _results = Path(".")\n'
     '\n'
