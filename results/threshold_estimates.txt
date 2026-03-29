@@ -1,0 +1,6 @@
+Threshold estimates (from curve crossings):
+=======================================================
+        MWPM d=3/5 crossing: p_th ~ 0.0395
+        MWPM d=5/7 crossing: p_th ~ 0.0415
+ Transformer d=3/5 crossing: not found in evaluated range
+ Transformer d=5/7 crossing: not found in evaluated range
