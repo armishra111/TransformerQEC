@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import json; nb=json.load\\(open\\(r''C:\\\\Books\\\\Quant_Prep\\\\jupyter_notebooks\\\\QEC_ML\\\\TransformerQEC\\\\notebooks\\\\03_evaluation.ipynb''\\)\\); print\\(len\\(nb[''cells'']\\)\\); [print\\(f''Cell {i} \\({c[\"\"cell_type\"\"]}\\): {repr\\(\"\"\\\\n\"\".join\\(c[\"\"source\"\"]\\)[:120]}''\\) for i,c in enumerate\\(nb[''cells'']\\)]\")",
+      "Bash(python -c \":*)",
+      "Bash(python tests/test_notebooks_compat.py)",
+      "Bash(ls -lh C:/Books/Quant_Prep/jupyter_notebooks/QEC_ML/TransformerQEC/results/*.pkl)",
+      "Bash(python:*)"
+    ]
+  }
+}

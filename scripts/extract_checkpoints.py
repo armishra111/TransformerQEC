@@ -3,12 +3,17 @@
 1. Reads any new base64-encoded checkpoints from 02_model_and_training.ipynb
    outputs and saves them as .pkl files to results/
 2. Collects ALL transformer_qec_d*.pkl files in results/
-3. Injects all of them into 03_evaluation.ipynb so it works on Colab
+3. Injects a download cell into 03_evaluation.ipynb so it works on Colab
    (the VSCode Colab extension syncs the notebook but not sibling .pkl files)
+
+Note: The old approach embedded base64-encoded pkl data directly in the cell
+source.  This created a ~69 MB cell that stalls Colab's Python parser.
+Instead we now inject a lightweight cell that downloads the pkl files from
+the GitHub repo at runtime.
 
 Usage:  python extract_checkpoints.py
 """
-import json, base64
+import json, base64, subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
@@ -32,44 +37,66 @@ if NB_TRAIN.exists():
                         print(f'Extracted from nb 02: {path}')
 
 # --- Step 2: Collect ALL .pkl checkpoint files on disk ---
-checkpoints = {}  # filename -> base64 string
-for pkl_path in sorted(RESULTS.glob('transformer_qec_d*.pkl')):
-    raw = pkl_path.read_bytes()
-    checkpoints[pkl_path.name] = base64.b64encode(raw).decode('ascii')
-    print(f'Found: {pkl_path.name} ({len(raw):,} bytes)')
+pkl_files = sorted(RESULTS.glob('transformer_qec_d*.pkl'))
+for pkl_path in pkl_files:
+    print(f'Found: {pkl_path.name} ({pkl_path.stat().st_size:,} bytes)')
 
-if not checkpoints:
+if not pkl_files:
     print('\nNo .pkl checkpoint files found in results/.')
     print('Train a model with 02_model_and_training.ipynb first.')
     raise SystemExit(1)
 
-# --- Step 3: Inject all checkpoints into nb 03 ---
-ckpt_lines = []
-for filename, b64 in checkpoints.items():
-    ckpt_lines.append(f'    "{filename}": "{b64}",')
-ckpt_dict = "\n".join(ckpt_lines)
+# --- Step 3: Detect GitHub remote for download URL ---
+repo = "armishra111/TransformerQEC"
+branch = "main"
+try:
+    url = subprocess.check_output(
+        ['git', 'remote', 'get-url', 'origin'],
+        cwd=str(ROOT), text=True
+    ).strip()
+    # Parse "https://github.com/OWNER/REPO" or "git@github.com:OWNER/REPO.git"
+    if 'github.com' in url:
+        parts = url.rstrip('.git').replace(':', '/').split('/')
+        repo = f'{parts[-2]}/{parts[-1]}'
+    branch_out = subprocess.check_output(
+        ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
+        cwd=str(ROOT), text=True
+    ).strip()
+    if branch_out:
+        branch = branch_out
+except Exception:
+    pass  # fall back to defaults
+
+print(f'GitHub repo: {repo}, branch: {branch}')
+
+# --- Step 4: Inject download cell into nb 03 ---
+file_list = ', '.join(f'"{p.name}"' for p in pkl_files)
 
 inject_source = (
-    '# Auto-generated: checkpoint data for Colab compatibility.\n'
-    '# This cell recreates .pkl files when running on a remote server.\n'
+    '# Auto-generated: download checkpoint files for Colab compatibility.\n'
+    '# This cell downloads .pkl files from GitHub when running on a remote\n'
+    '# server where only the notebook is synced (not sibling data files).\n'
     '# Locally the files already exist so this is a no-op.\n'
     '# Re-run extract_checkpoints.py after retraining to update.\n'
-    'import base64, os\n'
+    'import urllib.request\n'
     'from pathlib import Path\n'
     '\n'
-    '_CHECKPOINTS = {\n'
-    f'{ckpt_dict}\n'
-    '}\n'
+    f'_REPO = "{repo}"\n'
+    f'_BRANCH = "{branch}"\n'
+    f'_FILES = [{file_list}]\n'
     '\n'
     '_results = Path("../results").resolve()\n'
     'if not _results.exists():\n'
     '    _results = Path(".")\n'
+    '    _results.mkdir(exist_ok=True)\n'
     '\n'
-    'for _fname, _b64 in _CHECKPOINTS.items():\n'
+    'for _fname in _FILES:\n'
     '    _path = _results / _fname\n'
     '    if not _path.exists():\n'
-    '        _path.write_bytes(base64.b64decode(_b64))\n'
-    '        print(f"Restored: {_fname}")\n'
+    '        _url = f"https://raw.githubusercontent.com/{_REPO}/{_BRANCH}/results/{_fname}"\n'
+    '        print(f"Downloading {_fname} ...")\n'
+    '        urllib.request.urlretrieve(_url, str(_path))\n'
+    '        print(f"  Saved to {_path}")\n'
     '    else:\n'
     '        print(f"Already exists: {_fname}")\n'
 )
@@ -77,7 +104,9 @@ inject_source = (
 with open(NB_EVAL, 'r', encoding='utf-8') as f:
     nb03 = json.load(f)
 
-MARKER = "# Auto-generated: checkpoint data"
+# Match either old (inline base64) or new (download) marker
+OLD_MARKER = "# Auto-generated: checkpoint data"
+NEW_MARKER = "# Auto-generated: download checkpoint"
 source_lines = inject_source.split('\n')
 source_json = [line + '\n' for line in source_lines]
 if source_json:
@@ -87,7 +116,7 @@ if source_json:
 updated = False
 for i, cell in enumerate(nb03['cells']):
     src = ''.join(cell.get('source', []))
-    if MARKER in src:
+    if OLD_MARKER in src or NEW_MARKER in src:
         nb03['cells'][i]['source'] = source_json
         nb03['cells'][i]['outputs'] = []
         updated = True
@@ -112,9 +141,11 @@ if not updated:
     nb03['cells'].insert(insert_idx, new_cell)
     print('Injected checkpoint cell into 03_evaluation.ipynb')
 
+nb_json = json.dumps(nb03, indent=1, ensure_ascii=False)
 with open(NB_EVAL, 'w', encoding='utf-8') as f:
-    json.dump(nb03, f, indent=1, ensure_ascii=False)
+    f.write(nb_json)
 
-print(f'\nDone — {len(checkpoints)} checkpoint(s) injected into 03_evaluation.ipynb:')
-for name in checkpoints:
-    print(f'  - {name}')
+print(f'\nDone — download cell for {len(pkl_files)} checkpoint(s) '
+      f'injected into 03_evaluation.ipynb:')
+for p in pkl_files:
+    print(f'  - {p.name}')
