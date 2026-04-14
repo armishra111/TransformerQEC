@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 
 from transformerqec.baselines.pymatching_decoder import decode_with_pymatching
+from transformerqec.codes.surface_code import make_rotated_memory_z_circuit
 from transformerqec.evaluation.benchmark import (
     write_benchmark_rows,
     write_threshold_summary,
@@ -55,6 +56,16 @@ def test_write_benchmark_rows_creates_expected_header_and_rows(tmp_path: Path) -
     assert "3,0.005,0.01,0.009,10.0" in text
 
 
+def test_write_benchmark_rows_rejects_missing_field(tmp_path: Path) -> None:
+    csv_path = tmp_path / "evaluation_results.csv"
+
+    with pytest.raises(ValueError, match="benchmark row 0 is missing required fields"):
+        write_benchmark_rows(
+            csv_path,
+            [{"d": 3, "p": 0.005, "mwpm_ler": 0.01, "transformer_ler": 0.009}],
+        )
+
+
 def test_write_threshold_summary_writes_lines(tmp_path: Path) -> None:
     summary_path = tmp_path / "threshold_summary.txt"
 
@@ -81,6 +92,24 @@ def test_decode_with_pymatching_returns_observable_predictions() -> None:
     np.testing.assert_array_equal(predictions, np.array([0, 1], dtype=np.int64))
 
 
+def test_decode_with_pymatching_accepts_binary_float_syndromes() -> None:
+    import stim
+
+    circuit = stim.Circuit(
+        """
+        X_ERROR(0.1) 0
+        M 0
+        DETECTOR rec[-1]
+        OBSERVABLE_INCLUDE(0) rec[-1]
+        """
+    )
+    syndromes = np.array([[0.0], [1.0]], dtype=np.float32)
+
+    predictions = decode_with_pymatching(circuit, syndromes)
+
+    np.testing.assert_array_equal(predictions, np.array([0, 1], dtype=np.int64))
+
+
 def test_decode_with_pymatching_rejects_1d_syndromes() -> None:
     import stim
 
@@ -88,6 +117,27 @@ def test_decode_with_pymatching_rejects_1d_syndromes() -> None:
 
     with pytest.raises(ValueError, match="syndromes must be a 2D array"):
         decode_with_pymatching(circuit, np.array([False, True]))
+
+
+@pytest.mark.parametrize(
+    "syndromes",
+    [
+        np.array([[0.2]], dtype=np.float32),
+        np.array([[-1.0]], dtype=np.float32),
+        np.array([[2.0]], dtype=np.float32),
+        np.array([[np.nan]], dtype=np.float32),
+        np.array([[np.inf]], dtype=np.float32),
+    ],
+)
+def test_decode_with_pymatching_rejects_invalid_syndrome_values(
+    syndromes: np.ndarray,
+) -> None:
+    import stim
+
+    circuit = stim.Circuit("M 0\nDETECTOR rec[-1]\nOBSERVABLE_INCLUDE(0) rec[-1]")
+
+    with pytest.raises(ValueError, match="syndromes must contain only finite binary values"):
+        decode_with_pymatching(circuit, syndromes)
 
 
 def test_decode_with_pymatching_rejects_circuit_with_no_observable() -> None:
@@ -98,3 +148,16 @@ def test_decode_with_pymatching_rejects_circuit_with_no_observable() -> None:
 
     with pytest.raises(ValueError, match="PyMatching returned no observable predictions"):
         decode_with_pymatching(circuit, syndromes)
+
+
+def test_decode_with_pymatching_handles_generated_surface_code_circuit() -> None:
+    circuit = make_rotated_memory_z_circuit(
+        distance=3,
+        physical_error_rate=0.001,
+        rounds=1,
+    )
+    syndromes = np.zeros((2, circuit.num_detectors), dtype=bool)
+
+    predictions = decode_with_pymatching(circuit, syndromes)
+
+    np.testing.assert_array_equal(predictions, np.zeros(2, dtype=np.int64))
