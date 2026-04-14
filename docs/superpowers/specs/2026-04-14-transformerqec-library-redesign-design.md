@@ -11,6 +11,7 @@ Redesign TransformerQEC from a notebook-owned experiment into a maintainable Pyt
 - runs end to end on a laptop without Colab or Google Drive,
 - reproduces the current notebook baseline as a verification target,
 - supports future decoder engineering improvements without forcing code back into notebooks,
+- supports a post-refactor research phase where new decoder ideas are tested against the reproduced baseline,
 - exposes a small stable interface for data generation, training, evaluation, and inference,
 - documents prior research and adjacent projects so the repo is legible in historical context.
 
@@ -28,6 +29,7 @@ The redesign optimizes for a clean reusable decoder library first. Research acce
 - history/context documentation for prior papers and similar repos
 - notebook retention as examples and analysis surfaces, not primary code owners
 - tests for core behavior and baseline parity checks
+- a documented phase-two research workflow for developing and validating new decoder variants against the reproduced baseline
 
 ### Out of scope for the first redesign pass
 
@@ -48,6 +50,7 @@ The redesign is successful when all of the following hold:
 4. The notebooks become thin clients over package APIs or are archived as historical notebooks.
 5. The repo includes a historical-context document covering similar research and public implementations.
 6. The repo layout makes it straightforward to add and compare future decoder variants.
+7. The spec defines how post-refactor research ideas are proposed, implemented, benchmarked, and accepted as genuine improvements over the original baseline.
 
 ## 4. Recommended Architecture
 
@@ -162,11 +165,13 @@ Commands should support:
 
 #### `transformerqec.research`
 
-This is optional in the first implementation but reserved for:
+This namespace is not required to be fully populated in the first implementation, but the design must reserve it for:
 
 - ablation registries
 - comparison harness glue
 - candidate novel-engineering variants
+- experiment manifests for post-baseline research runs
+- result ranking against the blessed baseline
 
 The point is to keep research code additive instead of contaminating the stable baseline modules.
 
@@ -253,7 +258,81 @@ Every serious run should write a manifest. The manifest should include:
 
 This prevents a repeat of the current mismatch between notebooks, CSVs, threshold files, and README prose.
 
-## 7. Notebook Strategy
+## 7. Post-Refactor Research and Development Phase
+
+After the library reaches baseline parity, the repo should explicitly enter a second phase: improving on the original repository author's decoder through verified engineering experiments.
+
+This phase is part of the design, not an unstructured future wish list.
+
+### Objectives
+
+- improve logical error rate relative to the reproduced baseline,
+- improve efficiency, latency, or resource usage where possible,
+- narrow the novelty gap versus existing transformer/QEC work by testing differentiated engineering ideas,
+- reject ideas that do not beat the baseline under the agreed validation framework.
+
+### Research operating rule
+
+No proposed "improvement" counts unless it is evaluated through the same artifact and regression framework used for the baseline.
+
+Each new approach must have:
+
+- a named config or experiment manifest,
+- a clear hypothesis,
+- a baseline comparator,
+- saved metrics and artifacts,
+- a written conclusion stating whether it improved, regressed, or was inconclusive.
+
+### Candidate research directions
+
+These are the first-class follow-on work items the refactor should make easy:
+
+1. positional encoding variants:
+   - current anisotropic `(2+1)D` RoPE
+   - isotropic `x/y/t` RoPE
+   - spatial-only RoPE
+   - learned additive coordinate embeddings
+   - ratio sweeps such as `1:1`, `2:1`, `3:1`, `4:1`
+2. architecture changes:
+   - deeper or wider transformer variants
+   - local-global hybrid attention
+   - sparse or windowed attention for longer detector sequences
+   - lightweight pooling or hierarchical detector grouping
+3. task formulation changes:
+   - binary logical-Z prediction vs richer logical-label formulations
+   - auxiliary losses
+   - multi-task decoding targets
+4. efficiency changes:
+   - reduced precision policies
+   - improved batching and data pipelines
+   - faster evaluation and benchmarking paths
+5. noise-model expansion:
+   - circuit-level noise once the phenomenological baseline is stable
+
+### Improvement criteria
+
+The repo should define explicit dimensions for "better than baseline", such as:
+
+- lower transformer logical error rate,
+- better performance relative to MWPM in target regimes,
+- lower latency at similar quality,
+- lower memory use,
+- better scaling to higher code distances,
+- better robustness under out-of-distribution `p` values.
+
+Not every experiment must improve every axis, but each experiment must declare its target axis before running.
+
+### Acceptance criteria for a new method
+
+A candidate method is promoted from `research/` toward the stable library only when:
+
+- it reproduces cleanly on a laptop-safe reduced benchmark,
+- it beats the blessed baseline on at least one declared target axis,
+- it does not silently change baseline evaluation semantics,
+- its artifacts are versioned and comparable,
+- its README/docs summary explains what changed and why the result matters.
+
+## 8. Notebook Strategy
 
 The notebooks should no longer own business logic.
 
@@ -273,7 +352,7 @@ The notebooks should no longer own business logic.
 
 - preserve current notebooks in an `archive/` or clearly marked historical state if needed for provenance
 
-## 8. Historical Context Documentation
+## 9. Historical Context Documentation
 
 Add a repo-level document, for example `docs/research-landscape.md`, that explains:
 
@@ -298,8 +377,9 @@ This document should explicitly separate:
 - what is already known in the literature
 - what this repo contributes
 - where the current novelty claim is narrow
+- what future research directions in this repo are still plausibly differentiated
 
-## 9. Novel Engineering Opportunities After the Refactor
+## 10. Novel Engineering Opportunities After the Refactor
 
 The redesign should make these future directions easy, even if they are not all built immediately:
 
@@ -312,7 +392,9 @@ The redesign should make these future directions easy, even if they are not all 
 
 The important design constraint is that future novelty experiments should be added as new modules/configs, not by rewriting baseline code paths.
 
-## 10. Package Management and Environment Design
+These opportunities should be treated as the first wave of the post-refactor R&D phase described in Section 7.
+
+## 11. Package Management and Environment Design
 
 Use UV for environment management.
 
@@ -330,7 +412,7 @@ The default install path should be CPU-safe.
 
 The project must not require Colab-specific behavior to function.
 
-## 11. CLI and User Experience
+## 12. CLI and User Experience
 
 The first stable CLI should make the common path obvious:
 
@@ -350,7 +432,7 @@ The README should have:
 - artifact layout explanation
 - research-landscape doc link
 
-## 12. Testing Strategy
+## 13. Testing Strategy
 
 ### Unit tests
 
@@ -376,7 +458,7 @@ The README should have:
 
 - CLI examples in README should be runnable or trivially validated
 
-## 13. Migration Plan
+## 14. Migration Plan
 
 Suggested migration sequence:
 
@@ -390,10 +472,12 @@ Suggested migration sequence:
 8. bless a canonical baseline artifact set
 9. update notebooks to import package code
 10. add historical-context docs
+11. define the phase-two research benchmark contract
+12. implement the first post-baseline ablation or improvement experiment
 
 This sequence preserves forward motion while reducing the risk of breaking the current experimental path before baseline parity exists.
 
-## 14. Risks and Mitigations
+## 15. Risks and Mitigations
 
 ### Risk: refactor changes model behavior silently
 
@@ -423,7 +507,7 @@ Mitigation:
 - stable CLI paths for baseline workflows
 - `research/` namespace for experiments
 
-## 15. Recommendation
+## 16. Recommendation
 
 Proceed with the layered decoder-library redesign.
 
@@ -432,6 +516,6 @@ This gives the repo:
 - maintainable code boundaries,
 - UV-managed reproducibility,
 - a clean path to preserve current results,
-- and room to test future engineering ideas without hiding logic in notebooks.
+- and a structured path to test future engineering ideas without hiding logic in notebooks.
 
-The redesign should be judged first on baseline parity and maintainability, then on how easily it enables future novelty experiments.
+The redesign should be judged first on baseline parity and maintainability, then on how effectively it supports a verified R&D loop for surpassing the original repository results.
