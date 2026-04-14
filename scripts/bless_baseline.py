@@ -5,10 +5,8 @@ from transformerqec.artifacts.manifest import write_manifest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "results"
-DEST = ROOT / "results" / "baseline"
 
-FILES = [
+ARTIFACT_NAMES = [
     "transformer_qec_d3.pkl",
     "transformer_qec_d5.pkl",
     "transformer_qec_d7.pkl",
@@ -19,17 +17,24 @@ FILES = [
 ]
 
 
-def main() -> None:
-    DEST.mkdir(parents=True, exist_ok=True)
+def bless_baseline(root: Path = ROOT) -> None:
+    source = root / "results"
+    dest = root / "results" / "baseline"
+    source_paths = [source / relative_name for relative_name in ARTIFACT_NAMES]
+    missing_paths = [path for path in source_paths if not path.is_file()]
+    if missing_paths:
+        missing = ", ".join(str(path) for path in missing_paths)
+        raise FileNotFoundError(f"baseline source files do not exist: {missing}")
+
+    dest.mkdir(parents=True, exist_ok=True)
     copied_files = []
-    for relative_name in FILES:
-        source_path = SOURCE / relative_name
-        dest_path = DEST / relative_name
+    for source_path in source_paths:
+        dest_path = dest / source_path.name
         shutil.copy2(source_path, dest_path)
         copied_files.append(dest_path)
 
-    write_manifest(DEST / "manifest.json", copied_files)
+    write_manifest(dest / "manifest.json", copied_files)
 
 
 if __name__ == "__main__":
-    main()
+    bless_baseline()
