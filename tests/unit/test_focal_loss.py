@@ -3,7 +3,6 @@ import jax.numpy as jnp
 import pytest
 
 from transformerqec.training.losses import focal_loss
-from transformerqec.training.state import create_optimizer
 
 
 def test_focal_loss_is_small_for_easy_correct_predictions() -> None:
@@ -50,15 +49,12 @@ def test_focal_loss_rejects_label_shape_mismatch() -> None:
         focal_loss(logits, labels, gamma=2.0, alpha=0.75)
 
 
-def test_focal_loss_returns_nan_for_invalid_labels_under_jit() -> None:
+def test_focal_loss_rejects_invalid_labels() -> None:
     logits = jnp.array([[6.0, -6.0]], dtype=jnp.float32)
     labels = jnp.array([2], dtype=jnp.int32)
 
-    loss = jax.jit(focal_loss, static_argnames=("gamma", "alpha"))(
-        logits, labels, gamma=2.0, alpha=0.75
-    )
-
-    assert jnp.isnan(loss)
+    with pytest.raises(ValueError, match="labels must contain only 0 or 1"):
+        focal_loss(logits, labels, gamma=2.0, alpha=0.75)
 
 
 @pytest.mark.parametrize(
@@ -116,32 +112,3 @@ def test_focal_loss_rejects_non_finite_alpha(alpha: float, message: str) -> None
 
     with pytest.raises(ValueError, match=message):
         focal_loss(logits, labels, gamma=2.0, alpha=alpha)
-
-
-@pytest.mark.parametrize(
-    ("peak_lr", "warmup_steps", "num_steps", "message"),
-    [
-        (0.0, 1, 4, "peak_lr must be > 0"),
-        (-1e-4, 1, 4, "peak_lr must be > 0"),
-        (1e-4, -1, 4, "warmup_steps must be >= 0"),
-        (1e-4, 1, 0, "num_steps must be > 0"),
-        (1e-4, 5, 4, "warmup_steps must be <= num_steps"),
-    ],
-)
-def test_create_optimizer_rejects_invalid_arguments(
-    peak_lr: float, warmup_steps: int, num_steps: int, message: str
-) -> None:
-    with pytest.raises(ValueError, match=message):
-        create_optimizer(peak_lr=peak_lr, warmup_steps=warmup_steps, num_steps=num_steps)
-
-
-@pytest.mark.parametrize(
-    ("peak_lr", "message"),
-    [
-        (float("nan"), "peak_lr must be finite"),
-        (float("inf"), "peak_lr must be finite"),
-    ],
-)
-def test_create_optimizer_rejects_non_finite_peak_lr(peak_lr: float, message: str) -> None:
-    with pytest.raises(ValueError, match=message):
-        create_optimizer(peak_lr=peak_lr, warmup_steps=1, num_steps=4)

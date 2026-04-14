@@ -1,11 +1,20 @@
 import math
+from typing import Any
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 
 
-def focal_loss(logits: jnp.ndarray, labels: jnp.ndarray, gamma: float, alpha: float) -> jnp.ndarray:
-    """Compute binary focal loss for logits with two classes and integer labels."""
+def _validate_binary_label_values(labels: Any) -> None:
+    if isinstance(labels, jax.core.Tracer):
+        return
+    labels_array = np.asarray(labels)
+    if np.any((labels_array != 0) & (labels_array != 1)):
+        raise ValueError("labels must contain only 0 or 1")
+
+
+def _validate_focal_loss_arguments(logits: jnp.ndarray, labels: jnp.ndarray, gamma: float, alpha: float) -> None:
     if not math.isfinite(gamma):
         raise ValueError(f"gamma must be finite; got {gamma}")
     if not math.isfinite(alpha):
@@ -14,6 +23,8 @@ def focal_loss(logits: jnp.ndarray, labels: jnp.ndarray, gamma: float, alpha: fl
         raise ValueError(f"gamma must be >= 0; got {gamma}")
     if alpha < 0 or alpha > 1:
         raise ValueError(f"alpha must be between 0 and 1 inclusive; got {alpha}")
+    if logits.ndim == 0:
+        raise ValueError("logits must have rank at least 1; got scalar logits")
     if logits.shape[-1] != 2:
         raise ValueError(f"logits.shape[-1] must be 2; got {logits.shape[-1]}")
     if labels.shape != logits.shape[:-1]:
@@ -22,12 +33,18 @@ def focal_loss(logits: jnp.ndarray, labels: jnp.ndarray, gamma: float, alpha: fl
             f"got labels.shape={labels.shape} and logits.shape[:-1]={logits.shape[:-1]}"
         )
 
+
+def _focal_loss_impl(logits: jnp.ndarray, labels: jnp.ndarray, gamma: float, alpha: float) -> jnp.ndarray:
+    _validate_focal_loss_arguments(logits, labels, gamma, alpha)
     log_probs = jax.nn.log_softmax(logits, axis=-1)
-    valid_labels = jnp.logical_or(labels == 0, labels == 1)
-    safe_labels = jnp.where(valid_labels, labels, 0)
-    log_p_t = jnp.take_along_axis(log_probs, safe_labels[..., None], axis=-1)[..., 0]
+    log_p_t = jnp.take_along_axis(log_probs, labels[..., None], axis=-1)[..., 0]
     p_t = jnp.exp(log_p_t)
     alpha_t = jnp.where(labels == 1, alpha, 1.0 - alpha)
-    loss = -alpha_t * ((1.0 - p_t) ** gamma) * log_p_t
-    loss = jnp.where(valid_labels, loss, jnp.nan)
-    return jnp.mean(loss)
+    return jnp.mean(-alpha_t * ((1.0 - p_t) ** gamma) * log_p_t)
+
+
+def focal_loss(logits: jnp.ndarray, labels: jnp.ndarray, gamma: float, alpha: float) -> jnp.ndarray:
+    """Compute binary focal loss for 2-class logits and integer labels 0 or 1."""
+    _validate_focal_loss_arguments(logits, labels, gamma, alpha)
+    _validate_binary_label_values(labels)
+    return _focal_loss_impl(logits, labels, gamma, alpha)

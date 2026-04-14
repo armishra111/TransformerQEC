@@ -1,6 +1,7 @@
 import jax
 import jax.numpy as jnp
 import numpy as np
+import pytest
 
 from transformerqec.models.transformer import TransformerQEC
 from transformerqec.training.loop import train_step
@@ -70,3 +71,32 @@ def test_train_step_runs_with_static_hyperparameters() -> None:
 
     assert int(next_state.step) == 1
     assert jnp.isfinite(loss)
+
+
+def test_train_step_rejects_invalid_labels() -> None:
+    model = TransformerQEC(d_model=128, num_heads=4, num_layers=1, ffn_dim=128)
+    coords = jnp.zeros((24, 3), dtype=jnp.float32)
+    variables = model.init(
+        jax.random.PRNGKey(2),
+        jnp.zeros((2, 24), dtype=jnp.float32),
+        jnp.full((2,), 0.005, dtype=jnp.float32),
+        coords,
+    )
+    state = create_train_state(
+        params=variables["params"],
+        apply_fn=model.apply,
+        peak_lr=1e-4,
+        warmup_steps=0,
+        num_steps=4,
+    )
+
+    with pytest.raises(ValueError, match="labels must contain only 0 or 1"):
+        train_step(
+            state,
+            jnp.zeros((2, 24), dtype=jnp.float32),
+            jnp.array([0, 2], dtype=jnp.int32),
+            jnp.full((2,), 0.005, dtype=jnp.float32),
+            coords,
+            gamma=2.0,
+            alpha=0.75,
+        )
