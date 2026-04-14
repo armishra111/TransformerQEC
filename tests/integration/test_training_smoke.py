@@ -1,5 +1,6 @@
 import jax
 import jax.numpy as jnp
+import numpy as np
 
 from transformerqec.models.transformer import TransformerQEC
 from transformerqec.training.loop import train_step
@@ -19,7 +20,7 @@ def test_train_step_runs_on_tiny_batch() -> None:
         params=variables["params"],
         apply_fn=model.apply,
         peak_lr=1e-4,
-        warmup_steps=1,
+        warmup_steps=0,
         num_steps=4,
     )
     next_state, loss = train_step(
@@ -31,5 +32,10 @@ def test_train_step_runs_on_tiny_batch() -> None:
         gamma=2.0,
         alpha=0.75,
     )
+
+    before_leaves = jax.tree_util.tree_leaves(variables["params"])
+    after_leaves = jax.tree_util.tree_leaves(next_state.params)
+
     assert int(next_state.step) == 1
     assert float(loss) >= 0.0
+    assert any(not np.array_equal(before, after) for before, after in zip(before_leaves, after_leaves))

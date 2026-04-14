@@ -3,6 +3,15 @@ import optax
 
 
 def create_optimizer(peak_lr: float, warmup_steps: int, num_steps: int) -> optax.GradientTransformation:
+    if peak_lr <= 0:
+        raise ValueError(f"peak_lr must be > 0; got {peak_lr}")
+    if warmup_steps < 0:
+        raise ValueError(f"warmup_steps must be >= 0; got {warmup_steps}")
+    if num_steps <= 0:
+        raise ValueError(f"num_steps must be > 0; got {num_steps}")
+    if warmup_steps > num_steps:
+        raise ValueError(f"warmup_steps must be <= num_steps; got warmup_steps={warmup_steps}, num_steps={num_steps}")
+
     schedule = optax.warmup_cosine_decay_schedule(
         init_value=0.0,
         peak_value=peak_lr,
