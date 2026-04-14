@@ -3,7 +3,7 @@ import jax.numpy as jnp
 import pytest
 
 from transformerqec.models.rope import apply_rope
-from transformerqec.models.transformer import TransformerQEC
+from transformerqec.models.transformer import TransformerBlockWithRoPE, TransformerQEC
 
 
 def _init_model(
@@ -17,6 +17,15 @@ def _init_model(
         jnp.zeros((2, 24), dtype=jnp.float32) if syndrome is None else syndrome,
         jnp.array([0.005, 0.01], dtype=jnp.float32) if p_error is None else p_error,
         jnp.zeros((24, 3), dtype=jnp.float32) if coords is None else coords,
+    )
+
+
+def _init_rope_block(block: TransformerBlockWithRoPE) -> None:
+    block.init(
+        jax.random.PRNGKey(0),
+        jnp.zeros((2, 25, block.d_model), dtype=jnp.float32),
+        jnp.ones((25, 16), dtype=jnp.float32),
+        jnp.zeros((25, 16), dtype=jnp.float32),
     )
 
 
@@ -57,7 +66,14 @@ def test_transformer_rejects_unsupported_positional_encoding() -> None:
     ("model", "message"),
     [
         (TransformerQEC(num_heads=0), "num_heads must be positive"),
+        (TransformerQEC(d_model=0), "d_model must be positive"),
         (TransformerQEC(d_model=130, num_heads=4), "d_model must be divisible by num_heads"),
+        (TransformerQEC(num_layers=0), "num_layers must be positive"),
+        (TransformerQEC(num_layers=-1), "num_layers must be positive"),
+        (TransformerQEC(ffn_dim=0), "ffn_dim must be positive"),
+        (TransformerQEC(num_classes=0), "num_classes must be positive"),
+        (TransformerQEC(rope_spatial_ratio=0), "rope_spatial_ratio must be positive"),
+        (TransformerQEC(rope_temporal_ratio=0), "rope_temporal_ratio must be positive"),
         (TransformerQEC(d_model=6, num_heads=2), "RoPE head_dim must be even"),
         (TransformerQEC(d_model=4, num_heads=2), "RoPE head_dim must be at least 4"),
     ],
@@ -113,6 +129,26 @@ def test_transformer_block_with_rope_is_exported() -> None:
     from transformerqec.models import TransformerBlockWithRoPE
 
     assert TransformerBlockWithRoPE.__name__ == "TransformerBlockWithRoPE"
+
+
+@pytest.mark.parametrize(
+    ("block", "message"),
+    [
+        (TransformerBlockWithRoPE(d_model=128, num_heads=0, ffn_dim=256), "num_heads must be positive"),
+        (TransformerBlockWithRoPE(d_model=0, num_heads=4, ffn_dim=256), "d_model must be positive"),
+        (
+            TransformerBlockWithRoPE(d_model=130, num_heads=4, ffn_dim=256),
+            "d_model must be divisible by num_heads",
+        ),
+        (TransformerBlockWithRoPE(d_model=6, num_heads=2, ffn_dim=256), "RoPE head_dim must be even"),
+        (TransformerBlockWithRoPE(d_model=4, num_heads=2, ffn_dim=256), "RoPE head_dim must be at least 4"),
+    ],
+)
+def test_transformer_block_with_rope_rejects_invalid_attention_shapes(
+    block: TransformerBlockWithRoPE, message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        _init_rope_block(block)
 
 
 def test_apply_rope_supports_notebook_layout_broadcasting() -> None:

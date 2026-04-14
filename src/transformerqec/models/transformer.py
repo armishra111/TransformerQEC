@@ -12,6 +12,32 @@ from transformerqec.models.rope import apply_rope, build_rope_2_5d
 SUPPORTED_POSITION_ENCODINGS = frozenset({"rope", "default"})
 
 
+def _validate_positive(name: str, value: int) -> None:
+    if value <= 0:
+        raise ValueError(f"{name} must be positive; got {value}")
+
+
+def _validate_attention_shape(d_model: int, num_heads: int, *, require_rope: bool) -> int:
+    _validate_positive("d_model", d_model)
+    _validate_positive("num_heads", num_heads)
+    if d_model % num_heads != 0:
+        raise ValueError(f"d_model must be divisible by num_heads; got {d_model} and {num_heads}")
+
+    head_dim = d_model // num_heads
+    if require_rope:
+        if head_dim % 2 != 0:
+            raise ValueError(
+                "RoPE head_dim must be even; "
+                f"got d_model={d_model}, num_heads={num_heads}, head_dim={head_dim}"
+            )
+        if head_dim < 4:
+            raise ValueError(
+                "RoPE head_dim must be at least 4; "
+                f"got d_model={d_model}, num_heads={num_heads}, head_dim={head_dim}"
+            )
+    return head_dim
+
+
 class TransformerBlock(nn.Module):
     d_model: int
     num_heads: int
@@ -39,7 +65,7 @@ class TransformerBlockWithRoPE(nn.Module):
 
     @nn.compact
     def __call__(self, x: jnp.ndarray, rope_cos: jnp.ndarray, rope_sin: jnp.ndarray) -> jnp.ndarray:
-        head_dim = self.d_model // self.num_heads
+        head_dim = _validate_attention_shape(self.d_model, self.num_heads, require_rope=True)
 
         y = nn.LayerNorm(dtype=self.dtype)(x)
         q = nn.DenseGeneral(features=(self.num_heads, head_dim), axis=-1, dtype=self.dtype, name="query")(y)
@@ -91,24 +117,16 @@ class TransformerQEC(nn.Module):
                 f"Unsupported pos_encoding {self.pos_encoding!r}; expected one of "
                 f"{sorted(SUPPORTED_POSITION_ENCODINGS)!r}"
             )
-        if self.num_heads <= 0:
-            raise ValueError(f"num_heads must be positive; got {self.num_heads}")
-        if self.d_model % self.num_heads != 0:
-            raise ValueError(f"d_model must be divisible by num_heads; got {self.d_model} and {self.num_heads}")
-
-        head_dim = self.d_model // self.num_heads
-        if self.pos_encoding == "rope":
-            if head_dim % 2 != 0:
-                raise ValueError(
-                    "RoPE head_dim must be even; "
-                    f"got d_model={self.d_model}, num_heads={self.num_heads}, head_dim={head_dim}"
-                )
-            if head_dim < 4:
-                raise ValueError(
-                    "RoPE head_dim must be at least 4; "
-                    f"got d_model={self.d_model}, num_heads={self.num_heads}, head_dim={head_dim}"
-                )
-        return head_dim
+        _validate_positive("num_layers", self.num_layers)
+        _validate_positive("ffn_dim", self.ffn_dim)
+        _validate_positive("num_classes", self.num_classes)
+        _validate_positive("rope_spatial_ratio", self.rope_spatial_ratio)
+        _validate_positive("rope_temporal_ratio", self.rope_temporal_ratio)
+        return _validate_attention_shape(
+            self.d_model,
+            self.num_heads,
+            require_rope=self.pos_encoding == "rope",
+        )
 
     @staticmethod
     def _validate_inputs(syndrome: jnp.ndarray, p_error: jnp.ndarray, coords: jnp.ndarray) -> tuple[int, int]:
