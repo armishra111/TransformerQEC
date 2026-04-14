@@ -1,9 +1,15 @@
+import math
+
 import jax
 import jax.numpy as jnp
 
 
 def focal_loss(logits: jnp.ndarray, labels: jnp.ndarray, gamma: float, alpha: float) -> jnp.ndarray:
     """Compute binary focal loss for logits with two classes and integer labels."""
+    if not math.isfinite(gamma):
+        raise ValueError(f"gamma must be finite; got {gamma}")
+    if not math.isfinite(alpha):
+        raise ValueError(f"alpha must be finite; got {alpha}")
     if gamma < 0:
         raise ValueError(f"gamma must be >= 0; got {gamma}")
     if alpha < 0 or alpha > 1:

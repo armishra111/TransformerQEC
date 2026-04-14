@@ -74,6 +74,21 @@ def test_focal_loss_rejects_negative_gamma(gamma: float, message: str) -> None:
 
 
 @pytest.mark.parametrize(
+    ("gamma", "message"),
+    [
+        (float("nan"), "gamma must be finite"),
+        (float("inf"), "gamma must be finite"),
+    ],
+)
+def test_focal_loss_rejects_non_finite_gamma(gamma: float, message: str) -> None:
+    logits = jnp.zeros((1, 2), dtype=jnp.float32)
+    labels = jnp.array([0], dtype=jnp.int32)
+
+    with pytest.raises(ValueError, match=message):
+        focal_loss(logits, labels, gamma=gamma, alpha=0.75)
+
+
+@pytest.mark.parametrize(
     ("alpha", "message"),
     [
         (-0.1, "alpha must be between 0 and 1 inclusive"),
@@ -81,6 +96,21 @@ def test_focal_loss_rejects_negative_gamma(gamma: float, message: str) -> None:
     ],
 )
 def test_focal_loss_rejects_out_of_range_alpha(alpha: float, message: str) -> None:
+    logits = jnp.zeros((1, 2), dtype=jnp.float32)
+    labels = jnp.array([0], dtype=jnp.int32)
+
+    with pytest.raises(ValueError, match=message):
+        focal_loss(logits, labels, gamma=2.0, alpha=alpha)
+
+
+@pytest.mark.parametrize(
+    ("alpha", "message"),
+    [
+        (float("nan"), "alpha must be finite"),
+        (float("inf"), "alpha must be finite"),
+    ],
+)
+def test_focal_loss_rejects_non_finite_alpha(alpha: float, message: str) -> None:
     logits = jnp.zeros((1, 2), dtype=jnp.float32)
     labels = jnp.array([0], dtype=jnp.int32)
 
