@@ -49,12 +49,29 @@ def test_focal_loss_rejects_label_shape_mismatch() -> None:
         focal_loss(logits, labels, gamma=2.0, alpha=0.75)
 
 
+def test_focal_loss_rejects_scalar_logits() -> None:
+    logits = jnp.array(0.0, dtype=jnp.float32)
+    labels = jnp.array(0, dtype=jnp.int32)
+
+    with pytest.raises(ValueError, match="logits must have rank at least 1"):
+        focal_loss(logits, labels, gamma=2.0, alpha=0.75)
+
+
 def test_focal_loss_rejects_invalid_labels() -> None:
     logits = jnp.array([[6.0, -6.0]], dtype=jnp.float32)
     labels = jnp.array([2], dtype=jnp.int32)
 
     with pytest.raises(ValueError, match="labels must contain only 0 or 1"):
         focal_loss(logits, labels, gamma=2.0, alpha=0.75)
+
+
+def test_outer_jit_focal_loss_rejects_invalid_labels() -> None:
+    logits = jnp.array([[6.0, -6.0]], dtype=jnp.float32)
+    labels = jnp.array([2], dtype=jnp.int32)
+    jitted = jax.jit(lambda x, y: focal_loss(x, y, gamma=2.0, alpha=0.75))
+
+    with pytest.raises(Exception, match="labels must contain only 0 or 1"):
+        jitted(logits, labels)
 
 
 @pytest.mark.parametrize(

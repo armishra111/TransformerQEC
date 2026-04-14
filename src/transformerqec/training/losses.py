@@ -14,6 +14,10 @@ def _validate_binary_label_values(labels: Any) -> None:
         raise ValueError("labels must contain only 0 or 1")
 
 
+def _raise_invalid_labels(_: Any) -> None:
+    raise ValueError("labels must contain only 0 or 1")
+
+
 def _validate_focal_loss_arguments(logits: jnp.ndarray, labels: jnp.ndarray, gamma: float, alpha: float) -> None:
     if not math.isfinite(gamma):
         raise ValueError(f"gamma must be finite; got {gamma}")
@@ -36,11 +40,22 @@ def _validate_focal_loss_arguments(logits: jnp.ndarray, labels: jnp.ndarray, gam
 
 def _focal_loss_impl(logits: jnp.ndarray, labels: jnp.ndarray, gamma: float, alpha: float) -> jnp.ndarray:
     _validate_focal_loss_arguments(logits, labels, gamma, alpha)
+    valid_labels = jnp.logical_or(labels == 0, labels == 1)
+    safe_labels = jnp.where(valid_labels, labels, 0)
     log_probs = jax.nn.log_softmax(logits, axis=-1)
-    log_p_t = jnp.take_along_axis(log_probs, labels[..., None], axis=-1)[..., 0]
+    log_p_t = jnp.take_along_axis(log_probs, safe_labels[..., None], axis=-1)[..., 0]
     p_t = jnp.exp(log_p_t)
-    alpha_t = jnp.where(labels == 1, alpha, 1.0 - alpha)
-    return jnp.mean(-alpha_t * ((1.0 - p_t) ** gamma) * log_p_t)
+    alpha_t = jnp.where(safe_labels == 1, alpha, 1.0 - alpha)
+    loss = jnp.mean(-alpha_t * ((1.0 - p_t) ** gamma) * log_p_t)
+
+    def _valid_branch(_: Any) -> jnp.ndarray:
+        return loss
+
+    def _invalid_branch(_: Any) -> jnp.ndarray:
+        jax.debug.callback(_raise_invalid_labels, jnp.array(0, dtype=jnp.int32), ordered=True)
+        return jnp.asarray(0.0, dtype=loss.dtype)
+
+    return jax.lax.cond(jnp.all(valid_labels), _valid_branch, _invalid_branch, operand=None)
 
 
 def focal_loss(logits: jnp.ndarray, labels: jnp.ndarray, gamma: float, alpha: float) -> jnp.ndarray:

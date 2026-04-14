@@ -30,3 +30,21 @@ def test_create_optimizer_rejects_invalid_arguments(
 def test_create_optimizer_rejects_non_finite_peak_lr(peak_lr: float, message: str) -> None:
     with pytest.raises(ValueError, match=message):
         create_optimizer(peak_lr=peak_lr, warmup_steps=1, num_steps=4)
+
+
+@pytest.mark.parametrize(
+    ("warmup_steps", "num_steps", "message"),
+    [
+        (1.0, 4, "warmup_steps must be a finite integer"),
+        (float("inf"), 4, "warmup_steps must be a finite integer"),
+        (True, 4, "warmup_steps must be a finite integer"),
+        (1, 4.0, "num_steps must be a finite integer"),
+        (1, float("inf"), "num_steps must be a finite integer"),
+        (1, False, "num_steps must be a finite integer"),
+    ],
+)
+def test_create_optimizer_rejects_non_integer_schedule_steps(
+    warmup_steps, num_steps, message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        create_optimizer(peak_lr=1e-4, warmup_steps=warmup_steps, num_steps=num_steps)
