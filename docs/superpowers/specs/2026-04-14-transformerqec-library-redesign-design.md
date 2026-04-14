@@ -2,7 +2,7 @@
 
 Date: 2026-04-14
 Status: Draft for review
-Owner intent: Convert the current notebook-first repo into a clean reusable decoder library, managed with UV, reproducible on a personal computer, with verified baseline results to guard against regressions during refactor.
+Owner intent: Convert the current notebook-first repo into a clean reusable decoder library, managed with UV, reproducible on a personal computer, with verified baseline results to guard against regressions during refactor, and with a research-engineering standard that reads as serious to both academic readers and strong industrial research teams.
 
 ## 1. Goal
 
@@ -16,6 +16,21 @@ Redesign TransformerQEC from a notebook-owned experiment into a maintainable Pyt
 - documents prior research and adjacent projects so the repo is legible in historical context.
 
 The redesign optimizes for a clean reusable decoder library first. Research acceleration and novelty maximization are supported, but they are downstream of baseline reproducibility and maintainability.
+
+### 1.1 North Star
+
+The North Star is not just to clean up the repo. It is to turn TransformerQEC into a public research-engineering artifact that looks materially stronger than the typical notebook-centric academic release and credible even to reviewers from highly disciplined research organizations.
+
+Because "better than DeepMind's platform" is not directly verifiable from the outside, the spec should translate that ambition into public, measurable qualities:
+
+- stronger local reproducibility,
+- clearer artifact provenance,
+- tighter regression and benchmark discipline,
+- cleaner modular code boundaries,
+- faster onboarding for an external reader,
+- more rigorous experiment comparison and writeup hygiene.
+
+In practice, the repo should aim to look like a small but serious quantitative research platform rather than a one-off experiment dump.
 
 ## 2. Scope
 
@@ -51,6 +66,7 @@ The redesign is successful when all of the following hold:
 5. The repo includes a historical-context document covering similar research and public implementations.
 6. The repo layout makes it straightforward to add and compare future decoder variants.
 7. The spec defines how post-refactor research ideas are proposed, implemented, benchmarked, and accepted as genuine improvements over the original baseline.
+8. An external reviewer can inspect the repo and see a clear research-engineering standard: reproducible commands, versioned artifacts, benchmark contracts, and documented conclusions instead of notebook-only claims.
 
 ## 4. Recommended Architecture
 
@@ -258,6 +274,26 @@ Every serious run should write a manifest. The manifest should include:
 
 This prevents a repeat of the current mismatch between notebooks, CSVs, threshold files, and README prose.
 
+### 6.1 Research-engineering quality bar
+
+The redesign should explicitly optimize for public credibility.
+
+That means the repository should present evidence in a way that would look competent to both:
+
+- an academic reader trying to reproduce or extend the work,
+- a research engineer evaluating whether the project is run with real quantitative discipline.
+
+Concrete signs of that quality bar include:
+
+- one-command or few-command baseline reproduction,
+- machine-readable manifests for every serious run,
+- canonical benchmark configs checked into the repo,
+- saved comparison tables between baseline and candidate methods,
+- explicit acceptance or rejection summaries for each experiment,
+- documentation that explains what is stable, what is exploratory, and what is historical.
+
+The goal is to make the repo look like a lightweight research platform with accountable experiment management, not just a cleaned-up notebook collection.
+
 ## 7. Post-Refactor Research and Development Phase
 
 After the library reaches baseline parity, the repo should explicitly enter a second phase: improving on the original repository author's decoder through verified engineering experiments.
@@ -269,6 +305,7 @@ This phase is part of the design, not an unstructured future wish list.
 - improve logical error rate relative to the reproduced baseline,
 - improve efficiency, latency, or resource usage where possible,
 - narrow the novelty gap versus existing transformer/QEC work by testing differentiated engineering ideas,
+- raise the public research-engineering standard of the repo so improvements are credible, inspectable, and easy to compare,
 - reject ideas that do not beat the baseline under the agreed validation framework.
 
 ### Research operating rule
@@ -281,7 +318,8 @@ Each new approach must have:
 - a clear hypothesis,
 - a baseline comparator,
 - saved metrics and artifacts,
-- a written conclusion stating whether it improved, regressed, or was inconclusive.
+- a written conclusion stating whether it improved, regressed, or was inconclusive,
+- a comparison record that an external reader can follow without reopening a notebook.
 
 ### Candidate research directions
 
@@ -318,7 +356,8 @@ The repo should define explicit dimensions for "better than baseline", such as:
 - lower latency at similar quality,
 - lower memory use,
 - better scaling to higher code distances,
-- better robustness under out-of-distribution `p` values.
+- better robustness under out-of-distribution `p` values,
+- better experiment clarity and reproducibility than the original notebook workflow.
 
 Not every experiment must improve every axis, but each experiment must declare its target axis before running.
 
@@ -330,7 +369,8 @@ A candidate method is promoted from `research/` toward the stable library only w
 - it beats the blessed baseline on at least one declared target axis,
 - it does not silently change baseline evaluation semantics,
 - its artifacts are versioned and comparable,
-- its README/docs summary explains what changed and why the result matters.
+- its README/docs summary explains what changed and why the result matters,
+- its benchmark evidence is organized well enough that a skeptical external reviewer can audit the claim quickly.
 
 ## 8. Notebook Strategy
 
@@ -431,6 +471,7 @@ The README should have:
 - baseline reproduction section
 - artifact layout explanation
 - research-landscape doc link
+- a short statement of the repo's validation and experiment-quality standard
 
 ## 13. Testing Strategy
 
