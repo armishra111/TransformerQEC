@@ -57,6 +57,14 @@ def test_focal_loss_rejects_scalar_logits() -> None:
         focal_loss(logits, labels, gamma=2.0, alpha=0.75)
 
 
+def test_focal_loss_rejects_empty_batch() -> None:
+    logits = jnp.zeros((0, 2), dtype=jnp.float32)
+    labels = jnp.zeros((0,), dtype=jnp.int32)
+
+    with pytest.raises(ValueError, match="labels must not be empty"):
+        focal_loss(logits, labels, gamma=2.0, alpha=0.75)
+
+
 def test_focal_loss_rejects_invalid_labels() -> None:
     logits = jnp.array([[6.0, -6.0]], dtype=jnp.float32)
     labels = jnp.array([2], dtype=jnp.int32)
@@ -72,6 +80,34 @@ def test_outer_jit_focal_loss_rejects_invalid_labels() -> None:
 
     with pytest.raises(Exception, match="labels must contain only 0 or 1"):
         jitted(logits, labels)
+
+
+def test_focal_loss_rejects_float_labels() -> None:
+    logits = jnp.array([[6.0, -6.0]], dtype=jnp.float32)
+    labels = jnp.array([0.0], dtype=jnp.float32)
+
+    with pytest.raises(ValueError, match="labels must have an integer dtype"):
+        focal_loss(logits, labels, gamma=2.0, alpha=0.75)
+
+
+def test_vmap_focal_loss_runs_for_valid_labels() -> None:
+    logits = jnp.array([[6.0, -6.0], [-6.0, 6.0]], dtype=jnp.float32)
+    labels = jnp.array([0, 1], dtype=jnp.int32)
+
+    losses = jax.vmap(lambda x, y: focal_loss(x, y, gamma=2.0, alpha=0.75))(logits, labels)
+
+    assert losses.shape == (2,)
+    assert jnp.all(jnp.isfinite(losses))
+
+
+def test_jitted_vmap_focal_loss_runs_for_valid_labels() -> None:
+    logits = jnp.array([[6.0, -6.0], [-6.0, 6.0]], dtype=jnp.float32)
+    labels = jnp.array([0, 1], dtype=jnp.int32)
+
+    losses = jax.jit(jax.vmap(lambda x, y: focal_loss(x, y, gamma=2.0, alpha=0.75)))(logits, labels)
+
+    assert losses.shape == (2,)
+    assert jnp.all(jnp.isfinite(losses))
 
 
 @pytest.mark.parametrize(

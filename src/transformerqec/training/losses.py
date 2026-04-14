@@ -15,7 +15,8 @@ def _validate_binary_label_values(labels: Any) -> None:
 
 
 def _raise_invalid_labels(_: Any) -> None:
-    raise ValueError("labels must contain only 0 or 1")
+    if not bool(_):
+        raise ValueError("labels must contain only 0 or 1")
 
 
 def _validate_focal_loss_arguments(logits: jnp.ndarray, labels: jnp.ndarray, gamma: float, alpha: float) -> None:
@@ -27,6 +28,8 @@ def _validate_focal_loss_arguments(logits: jnp.ndarray, labels: jnp.ndarray, gam
         raise ValueError(f"gamma must be >= 0; got {gamma}")
     if alpha < 0 or alpha > 1:
         raise ValueError(f"alpha must be between 0 and 1 inclusive; got {alpha}")
+    if not jnp.issubdtype(labels.dtype, jnp.integer):
+        raise ValueError(f"labels must have an integer dtype; got {labels.dtype}")
     if logits.ndim == 0:
         raise ValueError("logits must have rank at least 1; got scalar logits")
     if logits.shape[-1] != 2:
@@ -36,6 +39,8 @@ def _validate_focal_loss_arguments(logits: jnp.ndarray, labels: jnp.ndarray, gam
             "labels.shape must match logits.shape[:-1]; "
             f"got labels.shape={labels.shape} and logits.shape[:-1]={logits.shape[:-1]}"
         )
+    if labels.size == 0:
+        raise ValueError("labels must not be empty")
 
 
 def _focal_loss_impl(logits: jnp.ndarray, labels: jnp.ndarray, gamma: float, alpha: float) -> jnp.ndarray:
@@ -47,15 +52,8 @@ def _focal_loss_impl(logits: jnp.ndarray, labels: jnp.ndarray, gamma: float, alp
     p_t = jnp.exp(log_p_t)
     alpha_t = jnp.where(safe_labels == 1, alpha, 1.0 - alpha)
     loss = jnp.mean(-alpha_t * ((1.0 - p_t) ** gamma) * log_p_t)
-
-    def _valid_branch(_: Any) -> jnp.ndarray:
-        return loss
-
-    def _invalid_branch(_: Any) -> jnp.ndarray:
-        jax.debug.callback(_raise_invalid_labels, jnp.array(0, dtype=jnp.int32), ordered=True)
-        return jnp.asarray(0.0, dtype=loss.dtype)
-
-    return jax.lax.cond(jnp.all(valid_labels), _valid_branch, _invalid_branch, operand=None)
+    jax.debug.callback(_raise_invalid_labels, jnp.all(valid_labels))
+    return loss
 
 
 def focal_loss(logits: jnp.ndarray, labels: jnp.ndarray, gamma: float, alpha: float) -> jnp.ndarray:
