@@ -8,6 +8,8 @@ TransformerQEC is organized as a package-first research codebase. The notebooks 
 
 `transformerqec.models` owns the reusable Transformer and RoPE implementation. The model code is intentionally separate from training loops so architecture changes can be tested against fixed configs and artifact contracts.
 
-`transformerqec.training`, `transformerqec.evaluation`, and `transformerqec.research` own the executable workflows. These layers should bind configs, models, data, metrics, and artifact output together without hiding the evidence needed to reproduce a result.
+`transformerqec.training` and `transformerqec.evaluation` own the executable training and benchmark workflows. These layers should bind configs, models, data, metrics, and artifact output together without hiding the evidence needed to reproduce a result.
+
+A research registry layer is planned as the next package boundary for candidate methods and benchmark conclusions. Until that exists, research claims should stay anchored in checked-in configs, saved artifacts, and docs.
 
 The CLI is the package-facing entry point for these workflows. A baseline or research claim should be traceable from command, to config, to artifact set, to comparison against the blessed baseline.
