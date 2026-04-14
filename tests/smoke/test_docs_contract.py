@@ -44,10 +44,7 @@ def test_notebooks_are_archived() -> None:
     assert not Path("notebooks/03_evaluation.ipynb").exists()
 
 
-def test_architecture_does_not_claim_research_package_exists() -> None:
+def test_architecture_mentions_research_package_boundary() -> None:
     text = Path("docs/architecture.md").read_text()
-    assert (
-        "`transformerqec.training`, `transformerqec.evaluation`, and "
-        "`transformerqec.research` own"
-    ) not in text
-    assert "A research registry layer is planned" in text
+    assert "`transformerqec.research` owns the registry" in text
+    assert "A research registry layer is planned" not in text
