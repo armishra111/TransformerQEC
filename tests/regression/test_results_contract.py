@@ -1,0 +1,19 @@
+from pathlib import Path
+
+from transformerqec.artifacts.io import load_evaluation_rows
+
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_evaluation_csv_schema_is_stable() -> None:
+    rows = load_evaluation_rows(ROOT / "results" / "evaluation_results.csv")
+    assert rows[0].keys() == {
+        "distance",
+        "physical_error_rate",
+        "mwpm_ler",
+        "transformer_ler",
+        "improvement_pct",
+    }
+    assert rows[-1]["distance"] == 7
+    assert rows[-1]["physical_error_rate"] == 0.01
