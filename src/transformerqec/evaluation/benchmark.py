@@ -8,7 +8,7 @@ BENCHMARK_FIELDNAMES = ["d", "p", "mwpm_ler", "transformer_ler", "improvement_pc
 
 def write_benchmark_rows(path: Path, rows: list[dict[str, Any]]) -> None:
     for index, row in enumerate(rows):
-        missing_fields = [field for field in BENCHMARK_FIELDNAMES if field not in row]
+        missing_fields = [field for field in BENCHMARK_FIELDNAMES if row.get(field) is None]
         if missing_fields:
             fields = ", ".join(missing_fields)
             raise ValueError(f"benchmark row {index} is missing required fields: {fields}")

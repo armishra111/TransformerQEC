@@ -3,6 +3,7 @@ import pymatching
 
 
 def decode_with_pymatching(circuit, syndromes: np.ndarray) -> np.ndarray:
+    """Return the first observable prediction from the PyMatching baseline."""
     syndrome_array = np.asarray(syndromes)
     if syndrome_array.ndim != 2:
         raise ValueError("syndromes must be a 2D array")

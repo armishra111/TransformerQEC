@@ -66,6 +66,24 @@ def test_write_benchmark_rows_rejects_missing_field(tmp_path: Path) -> None:
         )
 
 
+def test_write_benchmark_rows_rejects_none_required_field(tmp_path: Path) -> None:
+    csv_path = tmp_path / "evaluation_results.csv"
+
+    with pytest.raises(ValueError, match="benchmark row 0 is missing required fields: mwpm_ler"):
+        write_benchmark_rows(
+            csv_path,
+            [
+                {
+                    "d": 3,
+                    "p": 0.005,
+                    "mwpm_ler": None,
+                    "transformer_ler": 0.009,
+                    "improvement_pct": 10.0,
+                },
+            ],
+        )
+
+
 def test_write_threshold_summary_writes_lines(tmp_path: Path) -> None:
     summary_path = tmp_path / "threshold_summary.txt"
 
