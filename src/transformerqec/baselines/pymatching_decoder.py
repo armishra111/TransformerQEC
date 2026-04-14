@@ -9,4 +9,6 @@ def decode_with_pymatching(circuit, syndromes: np.ndarray) -> np.ndarray:
 
     matching = pymatching.Matching.from_detector_error_model(circuit.detector_error_model())
     predictions = matching.decode_batch(syndrome_array.astype(np.bool_, copy=False))
+    if predictions.shape[1] == 0:
+        raise ValueError("PyMatching returned no observable predictions")
     return np.asarray(predictions[:, 0], dtype=np.int64)

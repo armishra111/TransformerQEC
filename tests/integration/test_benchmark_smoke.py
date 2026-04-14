@@ -30,6 +30,10 @@ def test_improvement_pct_handles_zero_mwpm_baseline() -> None:
     assert math.isnan(improvement_pct(0.0, 0.1))
 
 
+def test_improvement_pct_matches_relative_reduction() -> None:
+    assert improvement_pct(0.01, 0.009) == pytest.approx(10.0)
+
+
 def test_write_benchmark_rows_creates_expected_header_and_rows(tmp_path: Path) -> None:
     csv_path = tmp_path / "evaluation_results.csv"
     write_benchmark_rows(
@@ -84,3 +88,13 @@ def test_decode_with_pymatching_rejects_1d_syndromes() -> None:
 
     with pytest.raises(ValueError, match="syndromes must be a 2D array"):
         decode_with_pymatching(circuit, np.array([False, True]))
+
+
+def test_decode_with_pymatching_rejects_circuit_with_no_observable() -> None:
+    import stim
+
+    circuit = stim.Circuit("M 0\nDETECTOR rec[-1]")
+    syndromes = np.zeros((2, 1), dtype=bool)
+
+    with pytest.raises(ValueError, match="PyMatching returned no observable predictions"):
+        decode_with_pymatching(circuit, syndromes)
