@@ -54,9 +54,38 @@ def test_focal_loss_returns_nan_for_invalid_labels_under_jit() -> None:
     logits = jnp.array([[6.0, -6.0]], dtype=jnp.float32)
     labels = jnp.array([2], dtype=jnp.int32)
 
-    loss = jax.jit(focal_loss)(logits, labels, gamma=2.0, alpha=0.75)
+    loss = jax.jit(focal_loss, static_argnames=("gamma", "alpha"))(
+        logits, labels, gamma=2.0, alpha=0.75
+    )
 
     assert jnp.isnan(loss)
+
+
+@pytest.mark.parametrize(
+    ("gamma", "message"),
+    [(-1.0, "gamma must be >= 0")],
+)
+def test_focal_loss_rejects_negative_gamma(gamma: float, message: str) -> None:
+    logits = jnp.zeros((1, 2), dtype=jnp.float32)
+    labels = jnp.array([0], dtype=jnp.int32)
+
+    with pytest.raises(ValueError, match=message):
+        focal_loss(logits, labels, gamma=gamma, alpha=0.75)
+
+
+@pytest.mark.parametrize(
+    ("alpha", "message"),
+    [
+        (-0.1, "alpha must be between 0 and 1 inclusive"),
+        (1.1, "alpha must be between 0 and 1 inclusive"),
+    ],
+)
+def test_focal_loss_rejects_out_of_range_alpha(alpha: float, message: str) -> None:
+    logits = jnp.zeros((1, 2), dtype=jnp.float32)
+    labels = jnp.array([0], dtype=jnp.int32)
+
+    with pytest.raises(ValueError, match=message):
+        focal_loss(logits, labels, gamma=2.0, alpha=alpha)
 
 
 @pytest.mark.parametrize(
