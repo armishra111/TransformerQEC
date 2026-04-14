@@ -1,0 +1,437 @@
+# TransformerQEC Library Redesign Design
+
+Date: 2026-04-14
+Status: Draft for review
+Owner intent: Convert the current notebook-first repo into a clean reusable decoder library, managed with UV, reproducible on a personal computer, with verified baseline results to guard against regressions during refactor.
+
+## 1. Goal
+
+Redesign TransformerQEC from a notebook-owned experiment into a maintainable Python package that:
+
+- runs end to end on a laptop without Colab or Google Drive,
+- reproduces the current notebook baseline as a verification target,
+- supports future decoder engineering improvements without forcing code back into notebooks,
+- exposes a small stable interface for data generation, training, evaluation, and inference,
+- documents prior research and adjacent projects so the repo is legible in historical context.
+
+The redesign optimizes for a clean reusable decoder library first. Research acceleration and novelty maximization are supported, but they are downstream of baseline reproducibility and maintainability.
+
+## 2. Scope
+
+### In scope
+
+- UV-based Python project setup
+- extraction of notebook logic into package modules under `src/`
+- command-line entrypoints for the current workflow
+- reproducible baseline artifacts for regression checking
+- replacement of Colab/Drive assumptions with local paths
+- history/context documentation for prior papers and similar repos
+- notebook retention as examples and analysis surfaces, not primary code owners
+- tests for core behavior and baseline parity checks
+
+### Out of scope for the first redesign pass
+
+- inventing a substantially new decoder architecture
+- changing the primary noise model away from the current phenomenological baseline
+- forcing GPU support as a requirement
+- building a full interactive web UI
+- adding every possible decoder baseline at once
+- promising exact bitwise reproducibility across every machine and backend
+
+## 3. Success Criteria
+
+The redesign is successful when all of the following hold:
+
+1. A fresh user can clone the repo, install with UV, and run a laptop-safe baseline workflow without notebooks.
+2. The baseline workflow reproduces the current committed results closely enough to detect behavioral regressions.
+3. All core logic currently trapped in notebooks is moved into importable modules.
+4. The notebooks become thin clients over package APIs or are archived as historical notebooks.
+5. The repo includes a historical-context document covering similar research and public implementations.
+6. The repo layout makes it straightforward to add and compare future decoder variants.
+
+## 4. Recommended Architecture
+
+The redesign follows a layered decoder-library structure.
+
+### 4.1 Package layout
+
+```text
+TransformerQEC/
+├── pyproject.toml
+├── uv.lock
+├── README.md
+├── src/
+│   └── transformerqec/
+│       ├── __init__.py
+│       ├── config/
+│       ├── cli/
+│       ├── codes/
+│       ├── data/
+│       ├── models/
+│       ├── training/
+│       ├── baselines/
+│       ├── evaluation/
+│       ├── artifacts/
+│       ├── research/
+│       └── utils/
+├── configs/
+│   ├── baseline/
+│   ├── laptop/
+│   └── experiments/
+├── tests/
+│   ├── smoke/
+│   ├── unit/
+│   ├── integration/
+│   └── regression/
+├── scripts/
+├── docs/
+│   ├── superpowers/specs/
+│   ├── research-landscape.md
+│   ├── baseline-reproduction.md
+│   └── architecture.md
+├── notebooks/
+│   ├── examples/
+│   └── archive/
+├── results/
+│   └── baseline/
+└── references/
+```
+
+### 4.2 Module responsibilities
+
+#### `transformerqec.codes`
+
+- STIM circuit builders for rotated surface-code memory experiments
+- code-distance and rounds helpers
+- detector-coordinate extraction and normalization
+- future home for multiple code families if the repo expands later
+
+#### `transformerqec.data`
+
+- syndrome and logical observable sampling
+- dataset generation over `p` grids
+- train/val/test splits
+- optional caching to local files
+- dataset manifests containing exact generation parameters
+
+#### `transformerqec.models`
+
+- current TransformerQEC model
+- `(2+1)D` anisotropic RoPE implementation
+- model config dataclasses / schemas
+- future model variants behind explicit names
+
+#### `transformerqec.training`
+
+- focal loss
+- optimizer configuration
+- train-state creation
+- epoch execution
+- checkpoint selection and export
+
+#### `transformerqec.baselines`
+
+- PyMatching baseline decoder wrapper
+- baseline config and metadata capture
+
+#### `transformerqec.evaluation`
+
+- logical error rate sweeps
+- confidence intervals
+- threshold estimation
+- comparison tables
+- regression metrics against blessed baselines
+
+#### `transformerqec.artifacts`
+
+- checkpoint schema
+- plot generation
+- CSV and JSON summaries
+- run manifests that include parameter ranges and provenance
+
+#### `transformerqec.cli`
+
+Commands should support:
+
+- `transformerqec generate`
+- `transformerqec train`
+- `transformerqec eval`
+- `transformerqec benchmark`
+- `transformerqec reproduce-baseline`
+- `transformerqec infer`
+
+#### `transformerqec.research`
+
+This is optional in the first implementation but reserved for:
+
+- ablation registries
+- comparison harness glue
+- candidate novel-engineering variants
+
+The point is to keep research code additive instead of contaminating the stable baseline modules.
+
+## 5. Baseline Reproduction and Regression Protection
+
+This is a first-class requirement, not a cleanup afterthought.
+
+### 5.1 Baseline contract
+
+The refactor must preserve a known baseline artifact set derived from the current notebook pipeline or from a newly reblessed canonical rerun.
+
+The repo should define one explicit baseline profile, for example:
+
+- code distances included
+- physical error-rate train grid
+- physical error-rate eval grid
+- rounds policy
+- model hyperparameters
+- sample counts
+- checkpoint filenames
+
+This baseline profile must be stored in versioned config and referenced by tests/docs.
+
+### 5.2 Blessed artifacts
+
+The repo should maintain a `results/baseline/` directory or equivalent that includes:
+
+- blessed checkpoints
+- blessed evaluation CSV
+- blessed threshold summary
+- blessed plot images
+- blessed manifest describing exactly how these were produced
+
+### 5.3 Regression checks
+
+Regression checks should verify:
+
+- checkpoint loadability
+- detector coordinate extraction shape and normalization
+- training config parity with baseline profile
+- evaluation pipeline output schema
+- numeric closeness to the blessed baseline
+
+For numeric regression, exact bitwise equality is not required unless achieved naturally. Instead, define explicit tolerances, such as:
+
+- exact equality for config fields and artifact schemas
+- exact equality for eval grid values
+- bounded absolute/relative differences for logical error rates
+- bounded slope differences for derived regression summaries
+
+### 5.4 Local verification tiers
+
+#### Tier 1: smoke
+
+Runs on any laptop quickly:
+
+- tiny STIM sample generation
+- one forward pass
+- one PyMatching decode
+- one minimal eval loop
+
+#### Tier 2: baseline parity
+
+Runs a reduced but meaningful subset of the canonical baseline and compares outputs to stored references.
+
+#### Tier 3: full reproduction
+
+Rebuilds the full baseline artifact set locally if the machine budget allows it. This is not required for every test run, but it must be documented and runnable.
+
+## 6. Results and Provenance Model
+
+Every serious run should write a manifest. The manifest should include:
+
+- git commit
+- package version
+- config path
+- hardware/backend info
+- dependency versions
+- train/eval p-ranges
+- code distances
+- number of shots/samples
+- timestamp
+- generated artifact paths
+
+This prevents a repeat of the current mismatch between notebooks, CSVs, threshold files, and README prose.
+
+## 7. Notebook Strategy
+
+The notebooks should no longer own business logic.
+
+### Keep
+
+- exploratory analysis notebook
+- explanation notebook for detector layouts and model intuition
+- result-visualization notebook that imports package APIs
+
+### Change
+
+- notebook cells should call package functions
+- no duplicated model or evaluation code
+- no Drive mounts or hardcoded Colab paths in the canonical workflow
+
+### Archive
+
+- preserve current notebooks in an `archive/` or clearly marked historical state if needed for provenance
+
+## 8. Historical Context Documentation
+
+Add a repo-level document, for example `docs/research-landscape.md`, that explains:
+
+- the key prior papers
+- what problem each prior approach addresses
+- what architectures they use
+- whether they target surface code, toric code, color code, or other codes
+- whether they optimize for threshold, accuracy, transferability, or real-time decoding
+- how TransformerQEC differs
+
+Minimum topics to include:
+
+- AlphaQubit
+- Transformer-QEC
+- recent global-receptive-field / transformer surface-code papers
+- vision-transformer / mixture-of-experts QEC work
+- older deep-learning decoders
+- MWPM / PyMatching / sparse blossom as baseline families
+
+This document should explicitly separate:
+
+- what is already known in the literature
+- what this repo contributes
+- where the current novelty claim is narrow
+
+## 9. Novel Engineering Opportunities After the Refactor
+
+The redesign should make these future directions easy, even if they are not all built immediately:
+
+1. positional-encoding ablation framework
+2. decoder-interface abstraction for side-by-side comparisons
+3. artifact-verified benchmark sweeps across distances and p-ranges
+4. latency benchmarking on CPU vs optional accelerator backends
+5. future support for circuit-level noise
+6. richer decoder outputs beyond binary logical-Z classification
+
+The important design constraint is that future novelty experiments should be added as new modules/configs, not by rewriting baseline code paths.
+
+## 10. Package Management and Environment Design
+
+Use UV for environment management.
+
+Requirements:
+
+- `pyproject.toml` defines the package and dependency groups
+- `uv.lock` is committed
+- dependency groups include at least:
+  - runtime
+  - dev
+  - notebook
+  - optional accelerator extras if needed
+
+The default install path should be CPU-safe.
+
+The project must not require Colab-specific behavior to function.
+
+## 11. CLI and User Experience
+
+The first stable CLI should make the common path obvious:
+
+```bash
+uv sync
+uv run transformerqec generate --config configs/laptop/baseline-d3.yaml
+uv run transformerqec train --config configs/laptop/baseline-d3.yaml
+uv run transformerqec eval --config configs/laptop/baseline-d3.yaml
+uv run transformerqec reproduce-baseline --config configs/baseline/current.yaml
+```
+
+The README should have:
+
+- 5-minute quickstart
+- architecture overview
+- baseline reproduction section
+- artifact layout explanation
+- research-landscape doc link
+
+## 12. Testing Strategy
+
+### Unit tests
+
+- RoPE table shapes and invariants
+- detector-coordinate normalization
+- config parsing
+- checkpoint schema round-trip
+
+### Integration tests
+
+- STIM generation to model input pipeline
+- training one tiny epoch
+- PyMatching baseline execution
+- end-to-end eval on a tiny config
+
+### Regression tests
+
+- compare generated eval grids against blessed manifests
+- compare key LER values within tolerance
+- verify all baseline artifact schemas
+
+### Documentation tests
+
+- CLI examples in README should be runnable or trivially validated
+
+## 13. Migration Plan
+
+Suggested migration sequence:
+
+1. create UV project skeleton
+2. extract pure utilities from notebooks
+3. extract model code
+4. extract data generation and evaluation code
+5. add checkpoint/artifact schemas
+6. add CLI wrappers
+7. build smoke tests
+8. bless a canonical baseline artifact set
+9. update notebooks to import package code
+10. add historical-context docs
+
+This sequence preserves forward motion while reducing the risk of breaking the current experimental path before baseline parity exists.
+
+## 14. Risks and Mitigations
+
+### Risk: refactor changes model behavior silently
+
+Mitigation:
+
+- baseline artifacts plus regression thresholds
+- staged extraction with parity checks after each step
+
+### Risk: current notebook artifacts are already inconsistent
+
+Mitigation:
+
+- bless a single canonical baseline and document that older artifacts are historical
+
+### Risk: local laptops cannot reproduce the largest runs
+
+Mitigation:
+
+- define smoke, reduced baseline, and full baseline tiers
+- make CPU-safe configs explicit
+
+### Risk: research code starts polluting the stable library again
+
+Mitigation:
+
+- strict module boundaries
+- stable CLI paths for baseline workflows
+- `research/` namespace for experiments
+
+## 15. Recommendation
+
+Proceed with the layered decoder-library redesign.
+
+This gives the repo:
+
+- maintainable code boundaries,
+- UV-managed reproducibility,
+- a clean path to preserve current results,
+- and room to test future engineering ideas without hiding logic in notebooks.
+
+The redesign should be judged first on baseline parity and maintainability, then on how easily it enables future novelty experiments.
