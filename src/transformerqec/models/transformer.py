@@ -9,6 +9,9 @@ from flax import linen as nn
 from transformerqec.models.rope import apply_rope, build_rope_2_5d
 
 
+SUPPORTED_POSITION_ENCODINGS = frozenset({"rope", "default"})
+
+
 class TransformerBlock(nn.Module):
     d_model: int
     num_heads: int
@@ -82,10 +85,55 @@ class TransformerQEC(nn.Module):
     rope_temporal_ratio: int = 1
     dtype: Any = jnp.float32
 
+    def _validate_static_config(self) -> int:
+        if self.pos_encoding not in SUPPORTED_POSITION_ENCODINGS:
+            raise ValueError(
+                f"Unsupported pos_encoding {self.pos_encoding!r}; expected one of "
+                f"{sorted(SUPPORTED_POSITION_ENCODINGS)!r}"
+            )
+        if self.num_heads <= 0:
+            raise ValueError(f"num_heads must be positive; got {self.num_heads}")
+        if self.d_model % self.num_heads != 0:
+            raise ValueError(f"d_model must be divisible by num_heads; got {self.d_model} and {self.num_heads}")
+
+        head_dim = self.d_model // self.num_heads
+        if self.pos_encoding == "rope":
+            if head_dim % 2 != 0:
+                raise ValueError(
+                    "RoPE head_dim must be even; "
+                    f"got d_model={self.d_model}, num_heads={self.num_heads}, head_dim={head_dim}"
+                )
+            if head_dim < 4:
+                raise ValueError(
+                    "RoPE head_dim must be at least 4; "
+                    f"got d_model={self.d_model}, num_heads={self.num_heads}, head_dim={head_dim}"
+                )
+        return head_dim
+
+    @staticmethod
+    def _validate_inputs(syndrome: jnp.ndarray, p_error: jnp.ndarray, coords: jnp.ndarray) -> tuple[int, int]:
+        if syndrome.ndim != 2:
+            raise ValueError(f"syndrome must be rank 2 with shape (batch, length); got shape {syndrome.shape}")
+        batch_size, seq_len = syndrome.shape
+
+        if p_error.ndim != 1:
+            raise ValueError(f"p_error must be rank 1 with shape (batch,); got shape {p_error.shape}")
+        if p_error.shape[0] != batch_size:
+            raise ValueError(
+                "p_error batch length must match syndrome batch length; "
+                f"got {p_error.shape[0]} and {batch_size}"
+            )
+
+        if coords.ndim != 2 or coords.shape[1] != 3:
+            raise ValueError(f"coords must have shape (syndrome length, 3); got shape {coords.shape}")
+        if coords.shape[0] != seq_len:
+            raise ValueError(f"syndrome length must match coords length; got {seq_len} and {coords.shape[0]}")
+        return batch_size, seq_len
+
     @nn.compact
     def __call__(self, syndrome: jnp.ndarray, p_error: jnp.ndarray, coords: jnp.ndarray) -> jnp.ndarray:
-        batch_size, seq_len = syndrome.shape
-        head_dim = self.d_model // self.num_heads
+        head_dim = self._validate_static_config()
+        batch_size, seq_len = self._validate_inputs(syndrome, p_error, coords)
 
         x = nn.Dense(self.d_model, dtype=self.dtype)(syndrome[..., None])
 
