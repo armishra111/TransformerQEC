@@ -10,6 +10,23 @@ The decoder is evaluated against the **Minimum Weight Perfect Matching (MWPM)** 
 
 ---
 
+## Quickstart
+
+```bash
+uv sync --extra dev
+uv run transformerqec reproduce-baseline --config configs/laptop/d3-smoke.yaml
+```
+
+The package CLI is the canonical entry point for reproducible runs. Historical notebooks are preserved under `notebooks/archive/` for context, but package modules, checked-in configs, and recorded artifacts are the maintained workflow.
+
+## Validation Standard
+
+Every baseline or research claim in this repo is expected to resolve to a checked-in config, a recorded artifact set, and a reproducible comparison against a blessed baseline.
+
+For the current smoke baseline, run the command above and compare outputs under `results/runs/` against `results/baseline/manifest.json`. See `docs/baseline-reproduction.md` and `docs/research-benchmark-contract.md` for the full contract.
+
+---
+
 ## 1. Architecture
 
 **Model Overview:** A 1.3M parameter JAX/Flax Transformer encoder ($n_{\text{layer}}=4, n_{\text{head}}=4, d_{\text{head}}=128$, `bfloat16` compute). The physical error rate $p$ is continuously injected via an MLP into the token embeddings to generalize across noise regimes.
@@ -88,20 +105,39 @@ Under the surface code power-law $P_L = C \cdot (p/p_{\text{th}})^{(d+1)/2}$, a 
 
 ```
 TransformerQEC/
+├── configs/
+│   ├── baseline/current.yaml          # Blessed baseline configuration
+│   └── laptop/d3-smoke.yaml           # Fast local reproduction config
+├── docs/
+│   ├── architecture.md                # Package boundaries and workflow ownership
+│   ├── baseline-reproduction.md       # Baseline setup and comparison procedure
+│   ├── research-benchmark-contract.md # Required evidence for candidate methods
+│   └── research-landscape.md          # Related approaches and positioning
 ├── notebooks/
-│   ├── 01_data_exploration.ipynb     # STIM circuit inspection, syndrome visualization,
-│   │                                 # defect statistics, and noise model characterization
-│   ├── 02_model_and_training.ipynb   # Model architecture, (2+1)D RoPE, and focal loss
-│   └── 03_evaluation.ipynb           # MWPM comparison, threshold estimation
-│                                     # Wilson CI, and result visualization
+│   ├── README.md                      # Archive guidance
+│   └── archive/
+│       ├── 01_data_exploration.ipynb  # Historical STIM circuit exploration
+│       ├── 02_model_and_training.ipynb # Historical model/training walkthrough
+│       └── 03_evaluation.ipynb        # Historical MWPM comparison notebook
 ├── results/
-│   ├── transformer_qec_d{3,5,7}.pkl  # Trained checkpoints (params + config + coords)
+│   ├── baseline/                      # Blessed artifact set and manifest
+│   ├── transformer_qec_d{3,5,7}.pkl   # Trained checkpoints (params + config + coords)
 │   ├── evaluation_results.csv         # Numerical LER comparison across (d, p)
 │   ├── transformer_vs_mwpm.png        # Decoder comparison plot
 │   ├── logical_error_rates.png        # Scaling behavior plot
 │   └── threshold_estimates.txt        # Threshold crossing analysis
+├── src/transformerqec/
+│   ├── codes/                         # STIM circuit construction and detector coordinates
+│   ├── data/                          # Dataset generation
+│   ├── models/                        # Transformer and RoPE implementation
+│   ├── training/                      # Training workflows
+│   ├── evaluation/                    # Benchmarking and metrics
+│   └── cli.py                         # Package command line interface
 ├── tests/
-│   └── test_notebooks_compat.py       # End-to-end integration tests (9 phases)
+│   ├── smoke/                         # CLI and docs contract checks
+│   ├── unit/                          # Package unit tests
+│   ├── integration/                   # Training/data/benchmark smoke checks
+│   └── regression/                    # Artifact and baseline contracts
 └── README.md
 ```
 
