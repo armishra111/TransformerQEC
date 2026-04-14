@@ -13,13 +13,15 @@ def make_rotated_memory_z_circuit(
     kwargs = {"distance": distance, "rounds": rounds}
     if noise_model == "code_capacity":
         kwargs.update({"rounds": 1, "before_round_data_depolarization": physical_error_rate})
-    else:
+    elif noise_model == "phenomenological":
         kwargs.update(
             {
                 "before_round_data_depolarization": physical_error_rate,
                 "before_measure_flip_probability": physical_error_rate,
             }
         )
+    else:
+        raise ValueError(f"unsupported noise_model: {noise_model!r}")
     return stim.Circuit.generated("surface_code:rotated_memory_z", **kwargs)
 
 

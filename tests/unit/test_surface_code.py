@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from transformerqec.codes.surface_code import (
     extract_detector_coordinates,
@@ -16,3 +17,8 @@ def test_detector_coordinates_are_normalized() -> None:
     assert coords.shape == (120, 3)
     assert np.all(coords >= 0.0)
     assert np.all(coords <= 1.0)
+
+
+def test_make_rotated_memory_z_circuit_rejects_unknown_noise_model() -> None:
+    with pytest.raises(ValueError, match=r"unsupported noise_model: 'unknown'"):
+        make_rotated_memory_z_circuit(distance=3, physical_error_rate=0.01, noise_model="unknown")
