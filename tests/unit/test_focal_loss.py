@@ -110,6 +110,15 @@ def test_jitted_vmap_focal_loss_runs_for_valid_labels() -> None:
     assert jnp.all(jnp.isfinite(losses))
 
 
+def test_direct_jit_focal_loss_runs_for_valid_labels() -> None:
+    logits = jnp.array([[6.0, -6.0], [-6.0, 6.0]], dtype=jnp.float32)
+    labels = jnp.array([0, 1], dtype=jnp.int32)
+
+    loss = jax.jit(focal_loss)(logits, labels, 2.0, 0.75)
+
+    assert jnp.isfinite(loss)
+
+
 @pytest.mark.parametrize(
     ("gamma", "message"),
     [(-1.0, "gamma must be >= 0")],
@@ -165,3 +174,11 @@ def test_focal_loss_rejects_non_finite_alpha(alpha: float, message: str) -> None
 
     with pytest.raises(ValueError, match=message):
         focal_loss(logits, labels, gamma=2.0, alpha=alpha)
+
+
+def test_jitted_focal_loss_rejects_invalid_gamma() -> None:
+    logits = jnp.array([[6.0, -6.0]], dtype=jnp.float32)
+    labels = jnp.array([0], dtype=jnp.int32)
+
+    with pytest.raises(Exception, match="gamma must be finite and within the allowed range"):
+        jax.jit(focal_loss)(logits, labels, -1.0, 0.75)

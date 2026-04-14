@@ -1,4 +1,5 @@
 import math
+from functools import partial
 from typing import Any
 
 import jax
@@ -19,15 +20,27 @@ def _raise_invalid_labels(_: Any) -> None:
         raise ValueError("labels must contain only 0 or 1")
 
 
-def _validate_focal_loss_arguments(logits: jnp.ndarray, labels: jnp.ndarray, gamma: float, alpha: float) -> None:
-    if not math.isfinite(gamma):
+def _raise_invalid_hyperparameter(flag: Any, *, name: str) -> None:
+    if not bool(flag):
+        raise ValueError(f"{name} must be finite and within the allowed range")
+
+
+def _validate_focal_loss_hyperparameters(gamma: float, alpha: float) -> None:
+    if isinstance(gamma, jax.core.Tracer) or isinstance(alpha, jax.core.Tracer):
+        return
+    gamma_value = float(gamma)
+    alpha_value = float(alpha)
+    if not math.isfinite(gamma_value):
         raise ValueError(f"gamma must be finite; got {gamma}")
-    if not math.isfinite(alpha):
+    if not math.isfinite(alpha_value):
         raise ValueError(f"alpha must be finite; got {alpha}")
-    if gamma < 0:
+    if gamma_value < 0:
         raise ValueError(f"gamma must be >= 0; got {gamma}")
-    if alpha < 0 or alpha > 1:
+    if alpha_value < 0 or alpha_value > 1:
         raise ValueError(f"alpha must be between 0 and 1 inclusive; got {alpha}")
+
+
+def _validate_focal_loss_arguments(logits: jnp.ndarray, labels: jnp.ndarray) -> None:
     if not jnp.issubdtype(labels.dtype, jnp.integer):
         raise ValueError(f"labels must have an integer dtype; got {labels.dtype}")
     if logits.ndim == 0:
@@ -44,7 +57,7 @@ def _validate_focal_loss_arguments(logits: jnp.ndarray, labels: jnp.ndarray, gam
 
 
 def _focal_loss_impl(logits: jnp.ndarray, labels: jnp.ndarray, gamma: float, alpha: float) -> jnp.ndarray:
-    _validate_focal_loss_arguments(logits, labels, gamma, alpha)
+    _validate_focal_loss_arguments(logits, labels)
     valid_labels = jnp.logical_or(labels == 0, labels == 1)
     safe_labels = jnp.where(valid_labels, labels, 0)
     log_probs = jax.nn.log_softmax(logits, axis=-1)
@@ -52,12 +65,20 @@ def _focal_loss_impl(logits: jnp.ndarray, labels: jnp.ndarray, gamma: float, alp
     p_t = jnp.exp(log_p_t)
     alpha_t = jnp.where(safe_labels == 1, alpha, 1.0 - alpha)
     loss = jnp.mean(-alpha_t * ((1.0 - p_t) ** gamma) * log_p_t)
+    # Keep the runtime checks outside `lax.cond` so they remain transform-safe under `vmap`;
+    # `safe_labels` prevents invalid gathers while the callback enforces the public contract.
     jax.debug.callback(_raise_invalid_labels, jnp.all(valid_labels))
+    jax.debug.callback(partial(_raise_invalid_hyperparameter, name="gamma"), jnp.isfinite(gamma) & (gamma >= 0))
+    jax.debug.callback(
+        partial(_raise_invalid_hyperparameter, name="alpha"),
+        jnp.isfinite(alpha) & (alpha >= 0) & (alpha <= 1),
+    )
     return loss
 
 
 def focal_loss(logits: jnp.ndarray, labels: jnp.ndarray, gamma: float, alpha: float) -> jnp.ndarray:
     """Compute binary focal loss for 2-class logits and integer labels 0 or 1."""
-    _validate_focal_loss_arguments(logits, labels, gamma, alpha)
+    _validate_focal_loss_hyperparameters(gamma, alpha)
+    _validate_focal_loss_arguments(logits, labels)
     _validate_binary_label_values(labels)
     return _focal_loss_impl(logits, labels, gamma, alpha)

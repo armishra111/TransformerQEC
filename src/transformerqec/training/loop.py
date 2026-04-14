@@ -1,11 +1,9 @@
-from functools import partial
-
 import jax
 
 from transformerqec.training.losses import _focal_loss_impl, _validate_binary_label_values
 
 
-@partial(jax.jit, static_argnames=("gamma", "alpha"))
+@jax.jit
 def _train_step_impl(state, syndromes, labels, physical_error_rates, coords, gamma: float, alpha: float):
     def loss_fn(params):
         logits = state.apply_fn({"params": params}, syndromes, physical_error_rates, coords)
