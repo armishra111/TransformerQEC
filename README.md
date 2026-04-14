@@ -150,4 +150,4 @@ TransformerQEC/
 5. **Focal Loss** — Lin, T.-Y. et al. "Focal loss for dense object detection." *ICCV* (2017).
 6. **Surface Codes** — Fowler, A. G. et al. "Surface codes: Towards practical large-scale quantum computation." *Physical Review A* 86, 032324 (2012).
 
-<p align="center"><i>Built with JAX on TPU. Synthetic data generated with STIM.</i></p>
+<p align="center"><i>Built with JAX. Synthetic data generated with STIM.</i></p>
