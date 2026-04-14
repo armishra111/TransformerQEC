@@ -15,5 +15,10 @@ def test_evaluation_csv_schema_is_stable() -> None:
         "transformer_ler",
         "improvement_pct",
     }
-    assert rows[-1]["distance"] == 7
-    assert rows[-1]["physical_error_rate"] == 0.01
+    assert rows[-1] == {
+        "distance": 7,
+        "physical_error_rate": 0.01,
+        "mwpm_ler": 0.00036,
+        "transformer_ler": 0.0016100000000000003,
+        "improvement_pct": -347.2222222222223,
+    }
