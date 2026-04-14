@@ -1,4 +1,5 @@
 import math
+import numbers
 from pathlib import Path
 from typing import Any
 
@@ -19,20 +20,36 @@ from transformerqec.config.schema import (
 SUPPORTED_SWEEP_SPACING = {"geomspace", "linspace"}
 
 
-def _normalize_distance_map(raw_map: dict[object, object]) -> dict[int, int]:
-    return {int(distance): int(value) for distance, value in raw_map.items()}
+def _normalize_distance_key(field_name: str, raw_distance: object) -> int:
+    if isinstance(raw_distance, str):
+        try:
+            distance = int(raw_distance)
+        except ValueError as error:
+            raise ValueError(f"{field_name} keys must be integers") from error
+        _require(distance > 0, f"{field_name} keys must be positive integers")
+        return distance
+    _require(_is_positive_int(raw_distance), f"{field_name} keys must be positive integers")
+    return int(raw_distance)
+
+
+def _normalize_distance_map(field_name: str, raw_map: dict[object, object]) -> dict[int, int]:
+    normalized = {}
+    for raw_distance, raw_value in raw_map.items():
+        _require(_is_positive_int(raw_value), f"{field_name} values must be positive integers")
+        normalized[_normalize_distance_key(field_name, raw_distance)] = int(raw_value)
+    return normalized
 
 
 def _is_positive_int(value: Any) -> bool:
-    return isinstance(value, int) and not isinstance(value, bool) and value > 0
+    return isinstance(value, numbers.Integral) and not isinstance(value, bool) and value > 0
 
 
 def _is_nonnegative_int(value: Any) -> bool:
-    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+    return isinstance(value, numbers.Integral) and not isinstance(value, bool) and value >= 0
 
 
 def _is_finite_number(value: Any) -> bool:
-    return isinstance(value, int | float) and not isinstance(value, bool) and math.isfinite(value)
+    return isinstance(value, numbers.Real) and not isinstance(value, bool) and math.isfinite(value)
 
 
 def _require(condition: bool, message: str) -> None:
@@ -137,6 +154,7 @@ def _validate_run_config(config: RunConfig) -> None:
         _is_finite_number(training.focal_alpha) and 0 <= training.focal_alpha <= 1,
         "training.focal_alpha must be between 0 and 1",
     )
+    _require(_is_nonnegative_int(training.seed), "training.seed must be a nonnegative integer")
 
     _require(_is_positive_int(evaluation.num_test), "evaluation.num_test must be positive")
     _validate_nonempty_path("evaluation.reference_csv", evaluation.reference_csv)
@@ -149,6 +167,10 @@ def _validate_run_config(config: RunConfig) -> None:
         _require(
             len(pair) == 2,
             "evaluation.threshold_pairs entries must have length 2",
+        )
+        _require(
+            all(_is_positive_int(distance) for distance in pair),
+            "evaluation.threshold_pairs entries must contain positive integers",
         )
         _require(
             all(distance in configured_distances for distance in pair),
@@ -176,8 +198,14 @@ def load_run_config(path: Path) -> RunConfig:
         model=ModelConfig(
             d_model=raw["model"]["d_model"],
             num_heads=raw["model"]["num_heads"],
-            num_layers_by_distance=_normalize_distance_map(raw["model"]["num_layers_by_distance"]),
-            ffn_dim_by_distance=_normalize_distance_map(raw["model"]["ffn_dim_by_distance"]),
+            num_layers_by_distance=_normalize_distance_map(
+                "model.num_layers_by_distance",
+                raw["model"]["num_layers_by_distance"],
+            ),
+            ffn_dim_by_distance=_normalize_distance_map(
+                "model.ffn_dim_by_distance",
+                raw["model"]["ffn_dim_by_distance"],
+            ),
             pos_encoding=raw["model"]["pos_encoding"],
             rope_spatial_ratio=raw["model"]["rope_spatial_ratio"],
             rope_temporal_ratio=raw["model"]["rope_temporal_ratio"],

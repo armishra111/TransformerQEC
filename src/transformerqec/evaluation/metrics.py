@@ -1,4 +1,5 @@
 import math
+import numbers
 from collections.abc import Sequence
 from typing import Any
 
@@ -6,7 +7,7 @@ from typing import Any
 def _is_binary_value(value: Any) -> bool:
     if isinstance(value, bool):
         return True
-    return isinstance(value, int | float) and math.isfinite(value) and value in {0, 1}
+    return isinstance(value, numbers.Real) and math.isfinite(value) and value in {0, 1}
 
 
 def logical_error_rate(predictions: Sequence[int | float | bool], labels: Sequence[int | float | bool]) -> float:

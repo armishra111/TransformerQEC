@@ -21,6 +21,13 @@ def test_logical_error_rate_accepts_bool_and_exact_binary_numbers() -> None:
     assert logical_error_rate([False, 1.0, True], [0, 1, 0.0]) == pytest.approx(1 / 3)
 
 
+def test_logical_error_rate_accepts_numpy_int64_decoder_outputs() -> None:
+    predictions = np.array([0, 1], dtype=np.int64)
+    labels = np.array([0, 1], dtype=np.int64)
+
+    assert logical_error_rate(predictions, labels) == 0.0
+
+
 def test_logical_error_rate_rejects_empty_labels() -> None:
     with pytest.raises(ValueError, match="labels must not be empty"):
         logical_error_rate([], [])
@@ -125,6 +132,56 @@ def test_write_benchmark_rows_rejects_none_required_field(tmp_path: Path) -> Non
                 },
             ],
         )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("d", 0),
+        ("d", 3.5),
+        ("p", -0.1),
+        ("p", math.nan),
+        ("mwpm_ler", 2.0),
+        ("transformer_ler", -0.3),
+        ("improvement_pct", math.inf),
+    ],
+)
+def test_write_benchmark_rows_rejects_impossible_metric_values(
+    tmp_path: Path,
+    field: str,
+    value: float,
+) -> None:
+    csv_path = tmp_path / "evaluation_results.csv"
+    row = {
+        "d": 3,
+        "p": 0.005,
+        "mwpm_ler": 0.01,
+        "transformer_ler": 0.009,
+        "improvement_pct": 10.0,
+    }
+    row[field] = value
+
+    with pytest.raises(ValueError, match=f"benchmark row 0 has invalid {field}"):
+        write_benchmark_rows(csv_path, [row])
+
+
+def test_write_benchmark_rows_allows_nan_improvement_pct(tmp_path: Path) -> None:
+    csv_path = tmp_path / "evaluation_results.csv"
+
+    write_benchmark_rows(
+        csv_path,
+        [
+            {
+                "d": 3,
+                "p": 0.005,
+                "mwpm_ler": 0.0,
+                "transformer_ler": 0.0,
+                "improvement_pct": math.nan,
+            },
+        ],
+    )
+
+    assert "nan" in csv_path.read_text()
 
 
 def test_write_threshold_summary_writes_lines(tmp_path: Path) -> None:

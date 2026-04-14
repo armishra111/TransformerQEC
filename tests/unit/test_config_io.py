@@ -184,6 +184,14 @@ paths:
         (lambda cfg: cfg["training"].update(warmup_steps=-1), "training.warmup_steps"),
         (lambda cfg: cfg["training"].update(focal_gamma=-0.1), "training.focal_gamma"),
         (lambda cfg: cfg["training"].update(focal_alpha=1.1), "training.focal_alpha"),
+        (lambda cfg: cfg["training"].update(seed="7"), "training.seed"),
+        (lambda cfg: cfg["training"].update(seed=True), "training.seed"),
+        (lambda cfg: cfg["model"].update(d_model=True), "model.d_model"),
+        (lambda cfg: cfg["data"].update(distances=[True]), "data.distances"),
+        (
+            lambda cfg: cfg["model"]["ffn_dim_by_distance"].update({5: True}),
+            "model.ffn_dim_by_distance",
+        ),
         (lambda cfg: cfg["evaluation"].update(num_test=0), "evaluation.num_test"),
         (
             lambda cfg: cfg["evaluation"].update(reference_csv=str(Path("missing.csv"))),
@@ -195,6 +203,10 @@ paths:
         ),
         (
             lambda cfg: cfg["evaluation"].update(threshold_pairs=[[3, 7]]),
+            "evaluation.threshold_pairs",
+        ),
+        (
+            lambda cfg: cfg["evaluation"].update(threshold_pairs=[[3, True]]),
             "evaluation.threshold_pairs",
         ),
         (lambda cfg: cfg["paths"].update(result_dir=""), "paths.result_dir"),
