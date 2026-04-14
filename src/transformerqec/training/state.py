@@ -1,8 +1,12 @@
+import math
+
 from flax.training.train_state import TrainState
 import optax
 
 
 def create_optimizer(peak_lr: float, warmup_steps: int, num_steps: int) -> optax.GradientTransformation:
+    if not math.isfinite(peak_lr):
+        raise ValueError(f"peak_lr must be finite; got {peak_lr}")
     if peak_lr <= 0:
         raise ValueError(f"peak_lr must be > 0; got {peak_lr}")
     if warmup_steps < 0:
