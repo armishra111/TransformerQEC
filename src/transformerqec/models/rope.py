@@ -10,6 +10,15 @@ def _round_even(value: float) -> int:
 
 def split_rope_dimensions(head_dim: int, spatial_ratio: int, temporal_ratio: int) -> tuple[int, int]:
     """Split a head dimension into spatial and temporal RoPE chunks."""
+    if head_dim % 2 != 0:
+        raise ValueError("head_dim must be even")
+    if head_dim < 4:
+        raise ValueError("head_dim must be at least 4")
+    if spatial_ratio <= 0:
+        raise ValueError("spatial_ratio must be positive")
+    if temporal_ratio <= 0:
+        raise ValueError("temporal_ratio must be positive")
+
     total = spatial_ratio + temporal_ratio
     spatial_dim = _round_even(head_dim * spatial_ratio / total)
     spatial_dim = max(2, min(spatial_dim, head_dim - 2))
@@ -39,6 +48,13 @@ def build_rope_2_5d(
     base_temporal: float = 10000.0,
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
     """Build cosine and sine tables for configurable 2.5D RoPE."""
+    if base_spatial <= 0:
+        raise ValueError("base_spatial must be positive")
+    if base_temporal <= 0:
+        raise ValueError("base_temporal must be positive")
+    if coords.ndim != 2 or coords.shape[-1] != 3:
+        raise ValueError("coords must have shape (L, 3)")
+
     spatial_dim, temporal_dim = split_rope_dimensions(head_dim, spatial_ratio, temporal_ratio)
     spatial_pairs = spatial_dim // 2
     temporal_pairs = temporal_dim // 2
