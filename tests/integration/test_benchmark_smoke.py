@@ -17,6 +17,10 @@ def test_logical_error_rate_matches_fraction_of_mistakes() -> None:
     assert logical_error_rate([0, 1, 1, 0], [0, 1, 0, 0]) == 0.25
 
 
+def test_logical_error_rate_accepts_bool_and_exact_binary_numbers() -> None:
+    assert logical_error_rate([False, 1.0, True], [0, 1, 0.0]) == pytest.approx(1 / 3)
+
+
 def test_logical_error_rate_rejects_empty_labels() -> None:
     with pytest.raises(ValueError, match="labels must not be empty"):
         logical_error_rate([], [])
@@ -27,12 +31,51 @@ def test_logical_error_rate_rejects_mismatched_lengths() -> None:
         logical_error_rate([0, 1], [0])
 
 
+@pytest.mark.parametrize(
+    ("predictions", "labels"),
+    [
+        ([0.2], [0]),
+        ([2], [0]),
+        ([np.nan], [0]),
+        ([np.inf], [0]),
+        ([0], [0.7]),
+        ([0], [-1]),
+        ([0], [np.nan]),
+        ([0], [np.inf]),
+    ],
+)
+def test_logical_error_rate_rejects_non_binary_or_non_finite_values(
+    predictions,
+    labels,
+) -> None:
+    with pytest.raises(ValueError, match="predictions and labels must contain only finite binary values"):
+        logical_error_rate(predictions, labels)
+
+
 def test_improvement_pct_handles_zero_mwpm_baseline() -> None:
     assert math.isnan(improvement_pct(0.0, 0.1))
 
 
 def test_improvement_pct_matches_relative_reduction() -> None:
     assert improvement_pct(0.01, 0.009) == pytest.approx(10.0)
+
+
+@pytest.mark.parametrize(
+    ("mwpm_ler", "transformer_ler"),
+    [
+        (math.nan, 0.1),
+        (math.inf, 0.1),
+        (0.1, math.nan),
+        (0.1, math.inf),
+        (-0.1, 0.1),
+        (1.1, 0.1),
+        (0.1, -0.1),
+        (0.1, 1.1),
+    ],
+)
+def test_improvement_pct_rejects_invalid_lers(mwpm_ler: float, transformer_ler: float) -> None:
+    with pytest.raises(ValueError, match="LER values must be finite values in \\[0, 1\\]"):
+        improvement_pct(mwpm_ler, transformer_ler)
 
 
 def test_write_benchmark_rows_creates_expected_header_and_rows(tmp_path: Path) -> None:

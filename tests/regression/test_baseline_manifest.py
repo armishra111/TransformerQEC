@@ -46,6 +46,17 @@ def test_blessed_manifest_tracks_existing_files() -> None:
         assert item["size_bytes"] == baseline_file.stat().st_size
 
 
+def test_top_level_compatibility_artifacts_match_blessed_baseline() -> None:
+    manifest = json.loads((BASELINE / "manifest.json").read_text())
+
+    for item in manifest["files"]:
+        top_level_file = ROOT / "results" / item["relative_path"]
+        baseline_file = BASELINE / item["relative_path"]
+        assert top_level_file.exists()
+        assert hashlib.sha256(top_level_file.read_bytes()).hexdigest() == item["sha256"]
+        assert top_level_file.read_bytes() == baseline_file.read_bytes()
+
+
 def test_manifest_rejects_empty_file_list(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="at least one file"):
         write_manifest(tmp_path / "manifest.json", [])
