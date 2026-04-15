@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from functools import lru_cache
+
 import jax.numpy as jnp
+import numpy as np
 
 
 def _round_even(value: float) -> int:
@@ -77,6 +80,59 @@ def build_rope_2_5d(
 
     angles = jnp.concatenate([angles_spatial, angles_temporal], axis=-1)
     return jnp.cos(angles), jnp.sin(angles)
+
+
+@lru_cache(maxsize=128)
+def _cached_rope_tables(
+    coords_shape: tuple[int, int],
+    coords_bytes: bytes,
+    head_dim: int,
+    seq_len: int,
+    spatial_ratio: int,
+    temporal_ratio: int,
+    base_spatial: float,
+    base_temporal: float,
+    dtype_name: str,
+) -> tuple[jnp.ndarray, jnp.ndarray]:
+    coords = np.frombuffer(coords_bytes, dtype=np.float32).reshape(coords_shape)
+    rope_cos, rope_sin = build_rope_2_5d(
+        coords=jnp.asarray(coords),
+        head_dim=head_dim,
+        seq_len=seq_len,
+        spatial_ratio=spatial_ratio,
+        temporal_ratio=temporal_ratio,
+        base_spatial=base_spatial,
+        base_temporal=base_temporal,
+    )
+    dtype = jnp.dtype(dtype_name)
+    return rope_cos.astype(dtype), rope_sin.astype(dtype)
+
+
+def get_rope_tables(
+    coords,
+    *,
+    head_dim: int,
+    seq_len: int,
+    spatial_ratio: int = 3,
+    temporal_ratio: int = 1,
+    base_spatial: float = 10000.0,
+    base_temporal: float = 10000.0,
+    dtype=jnp.float32,
+) -> tuple[jnp.ndarray, jnp.ndarray]:
+    coords_array = np.asarray(coords, dtype=np.float32)
+    if coords_array.ndim != 2 or coords_array.shape[-1] != 3:
+        raise ValueError("coords must have shape (L, 3)")
+    return _cached_rope_tables(
+        coords_array.shape,
+        coords_array.tobytes(),
+        head_dim,
+        seq_len,
+        spatial_ratio,
+        temporal_ratio,
+        float(base_spatial),
+        float(base_temporal),
+        jnp.dtype(dtype).name,
+    )
 
 
 def apply_rope(x: jnp.ndarray, rope_cos: jnp.ndarray, rope_sin: jnp.ndarray) -> jnp.ndarray:

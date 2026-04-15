@@ -1,7 +1,8 @@
 import jax.numpy as jnp
+import numpy as np
 import pytest
 
-from transformerqec.models.rope import apply_rope, build_rope_2_5d, split_rope_dimensions
+from transformerqec.models.rope import apply_rope, build_rope_2_5d, get_rope_tables, split_rope_dimensions
 
 
 def test_rope_dimension_split_preserves_head_dim() -> None:
@@ -89,3 +90,19 @@ def test_spatial_angles_interleave_x_and_y_bands() -> None:
 
     assert jnp.allclose(rope_sin[0], jnp.sin(expected_angles))
     assert jnp.allclose(rope_cos[0], jnp.cos(expected_angles))
+
+
+def test_get_rope_tables_reuses_cached_tables_for_equivalent_inputs() -> None:
+    coords = np.zeros((24, 3), dtype=np.float32)
+
+    first_cos, first_sin = get_rope_tables(coords, head_dim=32, seq_len=24, spatial_ratio=3, temporal_ratio=1)
+    second_cos, second_sin = get_rope_tables(
+        jnp.zeros((24, 3), dtype=jnp.float32),
+        head_dim=32,
+        seq_len=24,
+        spatial_ratio=3,
+        temporal_ratio=1,
+    )
+
+    assert first_cos is second_cos
+    assert first_sin is second_sin

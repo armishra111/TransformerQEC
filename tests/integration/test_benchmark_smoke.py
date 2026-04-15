@@ -3,6 +3,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+import transformerqec.baselines.pymatching_decoder as pymatching_decoder
 
 from transformerqec.baselines.pymatching_decoder import decode_with_pymatching
 from transformerqec.codes.surface_code import make_rotated_memory_z_circuit
@@ -208,6 +209,25 @@ def test_decode_with_pymatching_returns_observable_predictions() -> None:
     predictions = decode_with_pymatching(circuit, syndromes)
 
     np.testing.assert_array_equal(predictions, np.array([0, 1], dtype=np.int64))
+
+
+def test_decode_with_pymatching_reuses_cached_matching_for_equivalent_circuits() -> None:
+    import stim
+
+    circuit = stim.Circuit(
+        """
+        X_ERROR(0.1) 0
+        M 0
+        DETECTOR rec[-1]
+        OBSERVABLE_INCLUDE(0) rec[-1]
+        """
+    )
+    equivalent_circuit = stim.Circuit(str(circuit))
+
+    first = pymatching_decoder._get_matching(circuit)
+    second = pymatching_decoder._get_matching(equivalent_circuit)
+
+    assert first is second
 
 
 def test_decode_with_pymatching_accepts_binary_float_syndromes() -> None:

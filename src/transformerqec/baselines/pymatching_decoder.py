@@ -1,5 +1,19 @@
+from functools import lru_cache
+
 import numpy as np
 import pymatching
+import stim
+
+
+@lru_cache(maxsize=128)
+def _build_matching(circuit_text: str) -> pymatching.Matching:
+    circuit = stim.Circuit(circuit_text)
+    dem = circuit.detector_error_model(decompose_errors=True)
+    return pymatching.Matching.from_detector_error_model(dem)
+
+
+def _get_matching(circuit) -> pymatching.Matching:
+    return _build_matching(str(circuit))
 
 
 def decode_with_pymatching(circuit, syndromes: np.ndarray) -> np.ndarray:
@@ -17,8 +31,7 @@ def decode_with_pymatching(circuit, syndromes: np.ndarray) -> np.ndarray:
     if not np.all((syndrome_array == 0) | (syndrome_array == 1)):
         raise ValueError("syndromes must contain only finite binary values")
 
-    dem = circuit.detector_error_model(decompose_errors=True)
-    matching = pymatching.Matching.from_detector_error_model(dem)
+    matching = _get_matching(circuit)
     predictions = matching.decode_batch(syndrome_array.astype(np.bool_, copy=False))
     if predictions.shape[1] == 0:
         raise ValueError("PyMatching returned no observable predictions")

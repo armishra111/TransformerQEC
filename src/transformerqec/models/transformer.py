@@ -38,6 +38,23 @@ def _validate_attention_shape(d_model: int, num_heads: int, *, require_rope: boo
     return head_dim
 
 
+def _validate_optional_rope_tables(
+    seq_len: int,
+    head_dim: int,
+    rope_cos: jnp.ndarray | None,
+    rope_sin: jnp.ndarray | None,
+) -> None:
+    if (rope_cos is None) != (rope_sin is None):
+        raise ValueError("rope_cos and rope_sin must either both be provided or both be omitted")
+    if rope_cos is None or rope_sin is None:
+        return
+    expected_shape = (seq_len, head_dim // 2)
+    if rope_cos.shape != expected_shape:
+        raise ValueError(f"rope_cos must have shape {expected_shape}; got {rope_cos.shape}")
+    if rope_sin.shape != expected_shape:
+        raise ValueError(f"rope_sin must have shape {expected_shape}; got {rope_sin.shape}")
+
+
 class TransformerBlock(nn.Module):
     d_model: int
     num_heads: int
@@ -149,9 +166,21 @@ class TransformerQEC(nn.Module):
         return batch_size, seq_len
 
     @nn.compact
-    def __call__(self, syndrome: jnp.ndarray, p_error: jnp.ndarray, coords: jnp.ndarray) -> jnp.ndarray:
+    def __call__(
+        self,
+        syndrome: jnp.ndarray,
+        p_error: jnp.ndarray,
+        coords: jnp.ndarray,
+        rope_cos: jnp.ndarray | None = None,
+        rope_sin: jnp.ndarray | None = None,
+    ) -> jnp.ndarray:
         head_dim = self._validate_static_config()
         batch_size, seq_len = self._validate_inputs(syndrome, p_error, coords)
+        _validate_optional_rope_tables(seq_len, head_dim, rope_cos, rope_sin)
+
+        syndrome = syndrome.astype(self.dtype)
+        p_error = p_error.astype(self.dtype)
+        coords = coords.astype(self.dtype)
 
         x = nn.Dense(self.d_model, dtype=self.dtype)(syndrome[..., None])
 
@@ -171,13 +200,14 @@ class TransformerQEC(nn.Module):
         x = x + p_cond[:, None, :]
 
         if self.pos_encoding == "rope":
-            rope_cos, rope_sin = build_rope_2_5d(
-                coords,
-                head_dim,
-                seq_len,
-                spatial_ratio=self.rope_spatial_ratio,
-                temporal_ratio=self.rope_temporal_ratio,
-            )
+            if rope_cos is None or rope_sin is None:
+                rope_cos, rope_sin = build_rope_2_5d(
+                    coords,
+                    head_dim,
+                    seq_len,
+                    spatial_ratio=self.rope_spatial_ratio,
+                    temporal_ratio=self.rope_temporal_ratio,
+                )
             rope_cos = rope_cos.astype(self.dtype)
             rope_sin = rope_sin.astype(self.dtype)
             cls_cos = jnp.ones((1, head_dim // 2), dtype=self.dtype)

@@ -3,6 +3,7 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
+from transformerqec.models.rope import get_rope_tables
 from transformerqec.models.transformer import TransformerQEC
 from transformerqec.training.loop import train_step
 from transformerqec.training.state import create_train_state
@@ -98,6 +99,42 @@ def test_direct_jit_train_step_runs() -> None:
         coords,
         2.0,
         0.75,
+    )
+
+    assert int(next_state.step) == 1
+    assert jnp.isfinite(loss)
+
+
+def test_train_step_accepts_bool_syndromes_with_precomputed_rope_tables() -> None:
+    model = TransformerQEC(d_model=128, num_heads=4, num_layers=1, ffn_dim=128)
+    coords = jnp.zeros((24, 3), dtype=jnp.float32)
+    rope_cos, rope_sin = get_rope_tables(coords, head_dim=32, seq_len=24, spatial_ratio=3, temporal_ratio=1)
+    variables = model.init(
+        jax.random.PRNGKey(6),
+        jnp.zeros((2, 24), dtype=jnp.bool_),
+        jnp.full((2,), 0.005, dtype=jnp.float32),
+        coords,
+        rope_cos=rope_cos,
+        rope_sin=rope_sin,
+    )
+    state = create_train_state(
+        params=variables["params"],
+        apply_fn=model.apply,
+        peak_lr=1e-4,
+        warmup_steps=0,
+        num_steps=4,
+    )
+
+    next_state, loss = train_step(
+        state,
+        jnp.zeros((2, 24), dtype=jnp.bool_),
+        jnp.array([0, 1], dtype=jnp.int32),
+        jnp.full((2,), 0.005, dtype=jnp.float32),
+        coords,
+        gamma=2.0,
+        alpha=0.75,
+        rope_cos=rope_cos,
+        rope_sin=rope_sin,
     )
 
     assert int(next_state.step) == 1
