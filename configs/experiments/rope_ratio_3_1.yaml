@@ -1,0 +1,33 @@
+experiment_name: rope-ratio-3-1
+model:
+  d_model: 128
+  num_heads: 4
+  num_layers_by_distance: {3: 4}
+  ffn_dim_by_distance: {3: 1024}
+  pos_encoding: rope
+  rope_spatial_ratio: 3
+  rope_temporal_ratio: 1
+data:
+  distances: [3]
+  noise_model: phenomenological
+  rounds_policy: distance
+  train_sweep: {start: 0.005, stop: 0.01, count: 2, spacing: geomspace}
+  eval_sweep: {start: 0.005, stop: 0.01, count: 2, spacing: geomspace}
+  total_train_samples: 4096
+  validation_fraction: 0.125
+training:
+  batch_size: 64
+  num_epochs: 1
+  peak_lr: 0.0001
+  warmup_steps: 8
+  focal_gamma: 2.0
+  focal_alpha: 0.75
+  seed: 7
+evaluation:
+  num_test: 2048
+  reference_csv: results/baseline/evaluation_results.csv
+  threshold_pairs: [[3, 3]]
+paths:
+  result_dir: results
+  baseline_dir: results/baseline
+  run_dir: results/runs

@@ -1,0 +1,40 @@
+{
+  "baseline_name": "current",
+  "files": [
+    {
+      "relative_path": "evaluation_results.csv",
+      "sha256": "f2f37a5c38eb318c4a18f18ff3de009b483d0cb2e4ea47d4740f7e8120d52328",
+      "size_bytes": 2338
+    },
+    {
+      "relative_path": "logical_error_rates.png",
+      "sha256": "48ea84b95939d66fb55752ad929606146d310b28a57e424f204ef1aafb7ba574",
+      "size_bytes": 143223
+    },
+    {
+      "relative_path": "threshold_estimates.txt",
+      "sha256": "ce6b5209b615af5f7e154b46324db2ab0ffe427a6cf777d14abefabeb434abb7",
+      "size_bytes": 272
+    },
+    {
+      "relative_path": "transformer_qec_d3.pkl",
+      "sha256": "315bd0fcc3d3835a8983965ddae61beab0fc70a38a75598ee9265af03a9212d5",
+      "size_bytes": 5418714
+    },
+    {
+      "relative_path": "transformer_qec_d5.pkl",
+      "sha256": "a44a99862c4e20f6b41ae745127f099e3861c0f592289966af965155eddd6cc5",
+      "size_bytes": 4902226
+    },
+    {
+      "relative_path": "transformer_qec_d7.pkl",
+      "sha256": "328a94be4921375193cbe4e4af606077df99bce6eec0121caf8790ff31ee35c1",
+      "size_bytes": 4904771
+    },
+    {
+      "relative_path": "transformer_vs_mwpm.png",
+      "sha256": "2cad1a207f4fc741015d7efb276431760e01e97f8beecd1264159f9420703c05",
+      "size_bytes": 157489
+    }
+  ]
+}

@@ -1,2 +1,5 @@
-tests/
+.venv/
+__pycache__/
+.pytest_cache/
+results/runs/
 .claude
