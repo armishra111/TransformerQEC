@@ -21,7 +21,10 @@ The decoder is evaluated against the **Minimum Weight Perfect Matching (MWPM)** 
 * **Capacity Allocation:** We partition the RoPE frequency bands into a 3:1 spatial-to-temporal ratio, reflecting the richer structure of the 2D stabilizer lattice compared to the 1D temporal chain.
 
 This decomposition induces an **anisotropic attention kernel** that evaluates spatial and temporal correlations additively while enforcing translational invariance:
-$$A(i, j) \propto \exp \left( \frac{1}{\sqrt{d_{\text{head}}}} \left[ \left\langle R_{xy}(\Delta x_{ij}, \Delta y_{ij}) \mathbf{q}_i^{(xy)}, \mathbf{k}_j^{(xy)} \right\rangle_{d_s} + \left\langle R_t(\Delta t_{ij}) \mathbf{q}_i^{(t)}, \mathbf{k}_j^{(t)} \right\rangle_{d_t} \right] \right)$$
+
+$$
+A(i, j) \propto \exp \left( \frac{1}{\sqrt{d_{\text{head}}}} \left[ \langle R_{xy}(\Delta x_{ij}, \Delta y_{ij}) \mathbf{q}_i^{(xy)}, \mathbf{k}_j^{(xy)} \rangle_{d_s} + \langle R_t(\Delta t_{ij}) \mathbf{q}_i^{(t)}, \mathbf{k}_j^{(t)} \rangle_{d_t} \right] \right)
+$$
 
 Where $d_s:d_t = 3:1$ for now
 ## 2. Training
