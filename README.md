@@ -21,10 +21,9 @@ The decoder is evaluated against the **Minimum Weight Perfect Matching (MWPM)** 
 * **Capacity Allocation:** We partition the RoPE frequency bands into a 3:1 spatial-to-temporal ratio, reflecting the richer structure of the 2D stabilizer lattice compared to the 1D temporal chain.
 
 This decomposition induces an **anisotropic attention kernel** that evaluates spatial and temporal correlations additively while enforcing translational invariance:
+$$A(i, j) \propto \exp \left( \frac{1}{\sqrt{d_{\text{head}}}} \left[ \left\langle R_{xy}(\Delta x_{ij}, \Delta y_{ij}) \mathbf{q}_i^{(xy)}, \mathbf{k}_j^{(xy)} \right\rangle_{d_s} + \left\langle R_t(\Delta t_{ij}) \mathbf{q}_i^{(t)}, \mathbf{k}_j^{(t)} \right\rangle_{d_t} \right] \right)$$
 
-$$A(i,j)\propto\exp\!\Big(\tfrac{1}{\sqrt{d_{\text{head}}}}\sum_{\bullet\in\{x,y,t\}}\sum_{k}\big[A^{(\bullet)}_k\cos(\theta^{(\bulle
-  t)}_k\Delta\bullet_{ij})+B^{(\bullet)}_k\sin(\theta^{(\bullet)}_k\Delta\bullet_{ij})\big]\Big)$$
-
+Where $d_s:d_t = 3:1$ for now
 ## 2. Training
 
 * **Data Pipeline (STIM):** 10M synthetic syndromes per distance ($d \in \{3,5,7\}$) generated via STIM (`surface_code:rotated_memory_z`) under phenomenological noise. Error rates are geometrically sampled: $p \in [0.0009, 0.016]$.
