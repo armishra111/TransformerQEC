@@ -22,7 +22,8 @@ The decoder is evaluated against the **Minimum Weight Perfect Matching (MWPM)** 
 
 This decomposition induces an **anisotropic attention kernel** that evaluates spatial and temporal correlations additively while enforcing translational invariance:
 
-$$A(i, j) \propto \exp\left(\frac{\mathbf{q}^{(xy)}_i \cdot \mathbf{k}^{(xy)}_j + \mathbf{q}^{(t)}_i \cdot \mathbf{k}^{(t)}_j}{\sqrt{d_{\text{head}}}}\right)$$
+$$A(i,j)\propto\exp\!\Big(\tfrac{1}{\sqrt{d_{\text{head}}}}\sum_{\bullet\in\{x,y,t\}}\sum_{k}\big[A^{(\bullet)}_k\cos(\theta^{(\bulle
+  t)}_k\Delta\bullet_{ij})+B^{(\bullet)}_k\sin(\theta^{(\bullet)}_k\Delta\bullet_{ij})\big]\Big)$$
 
 ## 2. Training
 
