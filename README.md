@@ -22,8 +22,11 @@ The decoder is evaluated against the **Minimum Weight Perfect Matching (MWPM)** 
 
 This decomposition induces an **anisotropic attention kernel** that evaluates spatial and temporal correlations additively while enforcing translational invariance:
 
-$$A(i, j) \propto \exp\left(\frac{\mathbf{q}^{(xy)}_i \cdot \mathbf{k}^{(xy)}_j + \mathbf{q}^{(t)}_i \cdot \mathbf{k}^{(t)}_j}{\sqrt{d_{\text{head}}}}\right)$$
+$$
+A(i, j) \propto \exp \left( \frac{1}{\sqrt{d_{\text{head}}}} \left[ \langle R_{xy}(\Delta x_{ij}, \Delta y_{ij}) \mathbf{q}_i^{(xy)}, \mathbf{k}_j^{(xy)} \rangle_{d_s} + \langle R_t(\Delta t_{ij}) \mathbf{q}_i^{(t)}, \mathbf{k}_j^{(t)} \rangle_{d_t} \right] \right)
+$$
 
+Where $d_s:d_t = 3:1$ for now
 ## 2. Training
 
 * **Data Pipeline (STIM):** 10M synthetic syndromes per distance ($d \in \{3,5,7\}$) generated via STIM (`surface_code:rotated_memory_z`) under phenomenological noise. Error rates are geometrically sampled: $p \in [0.0009, 0.016]$.
