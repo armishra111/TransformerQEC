@@ -1,0 +1,10 @@
+# TransformerQEC runtime deps — pinned for reproducibility.
+# Colab installs via: !pip install -q -r requirements.txt
+stim>=1.14,<2
+pymatching>=2,<3
+flax>=0.8
+jax[tpu]>=0.4
+optax>=0.2
+numpy<2
+scipy>=1.10
+matplotlib>=3.5

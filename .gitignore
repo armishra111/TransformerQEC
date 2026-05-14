@@ -1,2 +1,6 @@
-tests/
 .claude
+.env
+*.env
+__pycache__/
+notebooks/__pycache__/
+.pytest_cache/

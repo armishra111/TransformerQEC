@@ -1,0 +1,165 @@
+
+<h2 class="sr-only">Log-log regression of transformer logical error rate vs physical error rate for d=3, 5, and 7</h2>
+
+<div style="padding: 1rem 0;">
+  <div id="legend" style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 12px; font-size: 13px; color: var(--color-text-secondary);"></div>
+  <div style="position: relative; width: 100%; height: 400px;">
+    <canvas id="chart" role="img" aria-label="Log-log scatter plot with regression lines for transformer logical error rate vs physical error rate at d=3,5,7"></canvas>
+  </div>
+  <div id="eqns" style="margin-top: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const raw = {
+  3: [
+    [0.0015, 0.00014999999999998348],
+    [0.0018519816306882234, 0.00026999999999999247],
+    [0.0022865573069377402, 0.00034999999999996145],
+    [0.002823108086643085, 0.0004899999999999904],
+    [0.003485562878606913, 0.0009700000000000264],
+    [0.0043034656158591825, 0.0014600000000000168],
+    [0.005313292845913057, 0.0020099999999999563],
+    [0.006560080499398755, 0.0030400000000000427],
+    [0.008099432387148347, 0.0047199999999999465],
+    [0.01, 0.006900000000000017]
+  ],
+  5: [
+    [0.0022865573069377402, 9.99999999995449e-06],
+    [0.002823108086643085, 2.999999999997449e-05],
+    [0.003485562878606913, 5.999999999994898e-05],
+    [0.0043034656158591825, 0.00014999999999998348],
+    [0.005313292845913057, 0.00029999999999996696],
+    [0.006560080499398755, 0.0006099999999999994],
+    [0.008099432387148347, 0.0011799999999999589],
+    [0.01, 0.0023300000000000542]
+  ],
+  7: [
+    [0.003485562878606913, 2.0000000000020002e-05],
+    [0.0043034656158591825, 2.999999999997449e-05],
+    [0.005313292845913057, 7.999999999996898e-05],
+    [0.006560080499398755, 0.00014999999999998348],
+    [0.008099432387148347, 0.0006500000000000394],
+    [0.01, 0.0016100000000000003]
+  ]
+};
+
+function linReg(xs, ys) {
+  const n = xs.length;
+  const sx = xs.reduce((a,b)=>a+b,0), sy = ys.reduce((a,b)=>a+b,0);
+  const sxy = xs.reduce((a,x,i)=>a+x*ys[i],0);
+  const sxx = xs.reduce((a,x)=>a+x*x,0);
+  const slope = (n*sxy - sx*sy)/(n*sxx - sx*sx);
+  const intercept = (sy - slope*sx)/n;
+  const ybar = sy/n;
+  const ssTot = ys.reduce((a,y)=>a+(y-ybar)**2,0);
+  const ssRes = ys.reduce((a,y,i)=>a+(y-(slope*xs[i]+intercept))**2,0);
+  const r2 = 1 - ssRes/ssTot;
+  return {slope, intercept, r2};
+}
+
+const colors = { 3: '#3266ad', 5: '#c85c2a', 7: '#2a9d6e' };
+const dashed = { 3: [], 5: [6,3], 7: [2,3] };
+
+const datasets = [];
+const eqnData = {};
+
+for (const d of [3,5,7]) {
+  const pts = raw[d].filter(([p,ler]) => p > 0 && ler > 0);
+  const lx = pts.map(([p])=>Math.log10(p));
+  const ly = pts.map(([,ler])=>Math.log10(ler));
+  const {slope, intercept, r2} = linReg(lx, ly);
+
+  const pth = Math.pow(10, -intercept/slope);
+  const C = Math.pow(10, intercept + slope * Math.log10(pth));
+  const expected = (d+1)/2;
+
+  eqnData[d] = {slope, intercept, r2, pth, C, expected};
+
+  const scatterPts = pts.map(([p,ler])=>({x:p, y:ler}));
+  datasets.push({
+    label: `d=${d} data`,
+    data: scatterPts,
+    type: 'scatter',
+    backgroundColor: colors[d],
+    pointRadius: 5,
+    pointHoverRadius: 7,
+    showLine: false,
+    borderDash: [],
+  });
+
+  const pMin = pts[0][0]*0.8, pMax = pts[pts.length-1][0]*1.2;
+  const regPts = [];
+  for (let i=0; i<=40; i++) {
+    const lp = Math.log10(pMin) + i*(Math.log10(pMax)-Math.log10(pMin))/40;
+    regPts.push({x: Math.pow(10,lp), y: Math.pow(10, slope*lp+intercept)});
+  }
+  datasets.push({
+    label: `d=${d} fit`,
+    data: regPts,
+    type: 'line',
+    borderColor: colors[d],
+    borderWidth: 2,
+    borderDash: dashed[d],
+    pointRadius: 0,
+    fill: false,
+    tension: 0,
+  });
+}
+
+const legendDiv = document.getElementById('legend');
+for (const d of [3,5,7]) {
+  const dash = dashed[d].length ? 'dashed' : 'solid';
+  legendDiv.innerHTML += `<span style="display:flex;align-items:center;gap:6px;">
+    <span style="width:24px;height:2px;background:${colors[d]};border-bottom:2px ${dash} ${colors[d]};display:inline-block;"></span>
+    <span style="width:8px;height:8px;border-radius:50%;background:${colors[d]};display:inline-block;"></span>
+    d = ${d}
+  </span>`;
+}
+
+new Chart(document.getElementById('chart'), {
+  type: 'scatter',
+  data: { datasets },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      x: {
+        type: 'logarithmic',
+        title: { display: true, text: 'Physical error rate p', font: {size:13} },
+        ticks: { callback: v => v.toExponential(0), maxTicksLimit: 6 }
+      },
+      y: {
+        type: 'logarithmic',
+        title: { display: true, text: 'Transformer LER', font: {size:13} },
+        ticks: { callback: v => v.toExponential(0), maxTicksLimit: 7 }
+      }
+    },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: ctx => `(${ctx.raw.x.toExponential(3)}, ${ctx.raw.y.toExponential(3)})`
+        }
+      }
+    }
+  }
+});
+
+const eqnDiv = document.getElementById('eqns');
+for (const d of [3,5,7]) {
+  const {slope, intercept, r2, pth, expected} = eqnData[d];
+  const C = Math.pow(10, intercept);
+  const card = document.createElement('div');
+  card.style.cssText = 'background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:14px 16px;font-size:13px;';
+  card.innerHTML = `
+    <div style="font-weight:500;margin-bottom:8px;color:var(--color-text-primary);">d = ${d}</div>
+    <div style="color:var(--color-text-secondary);margin-bottom:4px;">Fitted slope: <span style="color:var(--color-text-primary);font-weight:500;">${slope.toFixed(3)}</span></div>
+    <div style="color:var(--color-text-secondary);margin-bottom:4px;">Expected (d+1)/2: <span style="color:var(--color-text-primary);font-weight:500;">${expected.toFixed(1)}</span></div>
+    <div style="color:var(--color-text-secondary);margin-bottom:4px;">log₁₀(C): <span style="color:var(--color-text-primary);font-weight:500;">${intercept.toFixed(3)}</span></div>
+    <div style="color:var(--color-text-secondary);margin-bottom:4px;">p<sub>th</sub> (implied): <span style="color:var(--color-text-primary);font-weight:500;">${(pth*100).toFixed(2)}%</span></div>
+    <div style="color:var(--color-text-secondary);">R²: <span style="color:var(--color-text-primary);font-weight:500;">${r2.toFixed(4)}</span></div>
+  `;
+  eqnDiv.appendChild(card);
+}
+</script>
